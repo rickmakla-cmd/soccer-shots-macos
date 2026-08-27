@@ -1,0 +1,35 @@
+name: macOS CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Swift tests
+        run: swift test
+      - name: Build native app
+        run: >-
+          xcodebuild
+          -project SoccerShots.xcodeproj
+          -scheme SoccerShots
+          -configuration Release
+          -destination 'platform=macOS,arch=arm64'
+          -derivedDataPath DerivedData
+          -skipPackagePluginValidation
+          -skipMacroValidation
+          CODE_SIGNING_ALLOWED=NO
+          build
+      - name: Package Apple-silicon app
+        run: |
+          codesign --force --deep --sign - "DerivedData/Build/Products/Release/SoccerShots.app"
+          ditto -c -k --sequesterRsrc --keepParent "DerivedData/Build/Products/Release/SoccerShots.app" "SoccerShots-macOS-arm64.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SoccerShots-macOS-arm64
+          path: SoccerShots-macOS-arm64.zip
+          if-no-files-found: error

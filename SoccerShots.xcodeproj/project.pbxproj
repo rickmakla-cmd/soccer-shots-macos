@@ -1,0 +1,554 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		090026613F7E6F10D7FA113D /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8C01245233CF55D2DC6CED7 /* KeychainStore.swift */; };
+		2C89CE9DA8D6A187C4C806CB /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19764D2DA141FF340D51BEAE /* AppModel.swift */; };
+		2F683D9286225A6A5644A005 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA53BEF00C0AF36D1091261C /* Models.swift */; };
+		33A22B0A8A8BD4C212A650B1 /* SoccerShotsApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78D2F44EA504F7F1F19F4C38 /* SoccerShotsApp.swift */; };
+		4274DAFFFD189E5973023593 /* ScoreRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = 158957D3C8A4875C23C1448E /* ScoreRecord.swift */; };
+		446509772DBDF13A474F26C9 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BA37925ECEFF4B91B2CB168 /* RootView.swift */; };
+		5089294080E56772052F59C6 /* GeminiDeepReviewClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 132A4D58C21F770508043E86 /* GeminiDeepReviewClient.swift */; };
+		5A8A7ED799347C96CAC90408 /* PhotoDiscovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = A350693BADC0115A5AEC194D /* PhotoDiscovery.swift */; };
+		6009530AF989B3BE63B43047 /* ImagePreparer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B817ED27816AA48924562CA /* ImagePreparer.swift */; };
+		7D4E15600E4F3940AB830BDB /* MLXHuggingFace in Frameworks */ = {isa = PBXBuildFile; productRef = DCDD3076C44EB0B607E20300 /* MLXHuggingFace */; };
+		942092250ED6F209D1E87A99 /* MLXVLM in Frameworks */ = {isa = PBXBuildFile; productRef = 1DBCD94B671B5B08C752C46B /* MLXVLM */; };
+		A03784884190D73B03A512D5 /* HuggingFace in Frameworks */ = {isa = PBXBuildFile; productRef = 30A8F24EE65D48160504FDE3 /* HuggingFace */; };
+		A36804D89A0AC484BC2A1CDB /* ScoringTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39BD500DB1D085B747D6F11C /* ScoringTests.swift */; };
+		CEC03F5F26B676C13BB94FE0 /* MLXLMCommon in Frameworks */ = {isa = PBXBuildFile; productRef = 0A7A934081D8FAE584249630 /* MLXLMCommon */; };
+		D2EBCEE4C59CFE2213DA08F8 /* XMPBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F275C9C96C283933FE099B2 /* XMPBuilder.swift */; };
+		DA0DFE7FC6CEF0BAD9857AD1 /* ScoringParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E47BABEC57AD0138E65D3EF /* ScoringParser.swift */; };
+		E3A34E7502B1320F107B2E3B /* LocalGemmaService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5E18F282358CB830115ECFF /* LocalGemmaService.swift */; };
+		F35AB2FDEB23615BB0CC05F8 /* Tokenizers in Frameworks */ = {isa = PBXBuildFile; productRef = C352EC4F3AE6CF56E307708C /* Tokenizers */; };
+		F8134CDC2B5C8CCABD32AF52 /* ScoringPrompt.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D1CFCE8FA445E87CD7F76B8 /* ScoringPrompt.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		84F6783FC9A14F5CF2CE4ECE /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 83A704E3DC070B78A8FB5E1E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1FE91470C4B9599CA3033679;
+			remoteInfo = SoccerShots;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		132A4D58C21F770508043E86 /* GeminiDeepReviewClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeminiDeepReviewClient.swift; sourceTree = "<group>"; };
+		158957D3C8A4875C23C1448E /* ScoreRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScoreRecord.swift; sourceTree = "<group>"; };
+		19764D2DA141FF340D51BEAE /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
+		1E47BABEC57AD0138E65D3EF /* ScoringParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScoringParser.swift; sourceTree = "<group>"; };
+		2B817ED27816AA48924562CA /* ImagePreparer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePreparer.swift; sourceTree = "<group>"; };
+		39BD500DB1D085B747D6F11C /* ScoringTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScoringTests.swift; sourceTree = "<group>"; };
+		5BA37925ECEFF4B91B2CB168 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		5F275C9C96C283933FE099B2 /* XMPBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XMPBuilder.swift; sourceTree = "<group>"; };
+		78D2F44EA504F7F1F19F4C38 /* SoccerShotsApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoccerShotsApp.swift; sourceTree = "<group>"; };
+		7D1CFCE8FA445E87CD7F76B8 /* ScoringPrompt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScoringPrompt.swift; sourceTree = "<group>"; };
+		A1BC14023A35FAFE6E6BB348 /* SoccerShots.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SoccerShots.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A350693BADC0115A5AEC194D /* PhotoDiscovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoDiscovery.swift; sourceTree = "<group>"; };
+		A60AC3F0364B9EF5F4F28E03 /* SoccerShotsTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SoccerShotsTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A8C01245233CF55D2DC6CED7 /* KeychainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStore.swift; sourceTree = "<group>"; };
+		F5E18F282358CB830115ECFF /* LocalGemmaService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalGemmaService.swift; sourceTree = "<group>"; };
+		FA53BEF00C0AF36D1091261C /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		AD5CE73DA270CF9953D81769 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				942092250ED6F209D1E87A99 /* MLXVLM in Frameworks */,
+				CEC03F5F26B676C13BB94FE0 /* MLXLMCommon in Frameworks */,
+				7D4E15600E4F3940AB830BDB /* MLXHuggingFace in Frameworks */,
+				A03784884190D73B03A512D5 /* HuggingFace in Frameworks */,
+				F35AB2FDEB23615BB0CC05F8 /* Tokenizers in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		0BE7FFC243FFF77766CFE670 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A1BC14023A35FAFE6E6BB348 /* SoccerShots.app */,
+				A60AC3F0364B9EF5F4F28E03 /* SoccerShotsTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		246D98A91297967742BA873B /* Tests */ = {
+			isa = PBXGroup;
+			children = (
+				953C270B99FDD8AC914F7EA4 /* SoccerShotsTests */,
+			);
+			path = Tests;
+			sourceTree = "<group>";
+		};
+		6AADFD564EDB5FD619251489 = {
+			isa = PBXGroup;
+			children = (
+				C68E5D6FBCD34175CB96364B /* Sources */,
+				246D98A91297967742BA873B /* Tests */,
+				0BE7FFC243FFF77766CFE670 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		953C270B99FDD8AC914F7EA4 /* SoccerShotsTests */ = {
+			isa = PBXGroup;
+			children = (
+				39BD500DB1D085B747D6F11C /* ScoringTests.swift */,
+			);
+			path = SoccerShotsTests;
+			sourceTree = "<group>";
+		};
+		C68E5D6FBCD34175CB96364B /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				C9F4EB04AEF396E5A33C5E7F /* SoccerShots */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		C9F4EB04AEF396E5A33C5E7F /* SoccerShots */ = {
+			isa = PBXGroup;
+			children = (
+				19764D2DA141FF340D51BEAE /* AppModel.swift */,
+				132A4D58C21F770508043E86 /* GeminiDeepReviewClient.swift */,
+				2B817ED27816AA48924562CA /* ImagePreparer.swift */,
+				A8C01245233CF55D2DC6CED7 /* KeychainStore.swift */,
+				F5E18F282358CB830115ECFF /* LocalGemmaService.swift */,
+				FA53BEF00C0AF36D1091261C /* Models.swift */,
+				A350693BADC0115A5AEC194D /* PhotoDiscovery.swift */,
+				5BA37925ECEFF4B91B2CB168 /* RootView.swift */,
+				158957D3C8A4875C23C1448E /* ScoreRecord.swift */,
+				1E47BABEC57AD0138E65D3EF /* ScoringParser.swift */,
+				7D1CFCE8FA445E87CD7F76B8 /* ScoringPrompt.swift */,
+				78D2F44EA504F7F1F19F4C38 /* SoccerShotsApp.swift */,
+				5F275C9C96C283933FE099B2 /* XMPBuilder.swift */,
+			);
+			path = SoccerShots;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		1FE91470C4B9599CA3033679 /* SoccerShots */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4912A36783E8969C8C616C9F /* Build configuration list for PBXNativeTarget "SoccerShots" */;
+			buildPhases = (
+				4682780A269A7A7A7C09F893 /* Sources */,
+				AD5CE73DA270CF9953D81769 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SoccerShots;
+			packageProductDependencies = (
+				1DBCD94B671B5B08C752C46B /* MLXVLM */,
+				0A7A934081D8FAE584249630 /* MLXLMCommon */,
+				DCDD3076C44EB0B607E20300 /* MLXHuggingFace */,
+				30A8F24EE65D48160504FDE3 /* HuggingFace */,
+				C352EC4F3AE6CF56E307708C /* Tokenizers */,
+			);
+			productName = SoccerShots;
+			productReference = A1BC14023A35FAFE6E6BB348 /* SoccerShots.app */;
+			productType = "com.apple.product-type.application";
+		};
+		D4FD1B62258BCB445A76B9EF /* SoccerShotsTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 91E419A2067DD04FC0104091 /* Build configuration list for PBXNativeTarget "SoccerShotsTests" */;
+			buildPhases = (
+				1A27186B761E2571A6B50AC9 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				FC2FB5BDBB6C39E27A25394B /* PBXTargetDependency */,
+			);
+			name = SoccerShotsTests;
+			packageProductDependencies = (
+			);
+			productName = SoccerShotsTests;
+			productReference = A60AC3F0364B9EF5F4F28E03 /* SoccerShotsTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		83A704E3DC070B78A8FB5E1E /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					1FE91470C4B9599CA3033679 = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+					};
+					D4FD1B62258BCB445A76B9EF = {
+						DevelopmentTeam = "";
+					};
+				};
+			};
+			buildConfigurationList = 8AEB63F10EB682C9FCB39070 /* Build configuration list for PBXProject "SoccerShots" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 6AADFD564EDB5FD619251489;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				E5B8F1A4A9EACCEAFF3443AF /* XCRemoteSwiftPackageReference "mlx-swift-lm" */,
+				619D86BE8D699C891579B3CD /* XCRemoteSwiftPackageReference "swift-huggingface" */,
+				ED249E04B1549F28045675B7 /* XCRemoteSwiftPackageReference "swift-transformers" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 0BE7FFC243FFF77766CFE670 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				1FE91470C4B9599CA3033679 /* SoccerShots */,
+				D4FD1B62258BCB445A76B9EF /* SoccerShotsTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		1A27186B761E2571A6B50AC9 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A36804D89A0AC484BC2A1CDB /* ScoringTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4682780A269A7A7A7C09F893 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2C89CE9DA8D6A187C4C806CB /* AppModel.swift in Sources */,
+				5089294080E56772052F59C6 /* GeminiDeepReviewClient.swift in Sources */,
+				6009530AF989B3BE63B43047 /* ImagePreparer.swift in Sources */,
+				090026613F7E6F10D7FA113D /* KeychainStore.swift in Sources */,
+				E3A34E7502B1320F107B2E3B /* LocalGemmaService.swift in Sources */,
+				2F683D9286225A6A5644A005 /* Models.swift in Sources */,
+				5A8A7ED799347C96CAC90408 /* PhotoDiscovery.swift in Sources */,
+				446509772DBDF13A474F26C9 /* RootView.swift in Sources */,
+				4274DAFFFD189E5973023593 /* ScoreRecord.swift in Sources */,
+				DA0DFE7FC6CEF0BAD9857AD1 /* ScoringParser.swift in Sources */,
+				F8134CDC2B5C8CCABD32AF52 /* ScoringPrompt.swift in Sources */,
+				33A22B0A8A8BD4C212A650B1 /* SoccerShotsApp.swift in Sources */,
+				D2EBCEE4C59CFE2213DA08F8 /* XMPBuilder.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		FC2FB5BDBB6C39E27A25394B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1FE91470C4B9599CA3033679 /* SoccerShots */;
+			targetProxy = 84F6783FC9A14F5CF2CE4ECE /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		10F9F816452EA9DBA462F4A4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.rickmakla.SoccerShotsTests;
+				SDKROOT = macosx;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/SoccerShots.app/Contents/MacOS/SoccerShots";
+			};
+			name = Debug;
+		};
+		244F5B4A99CEB27512CC518D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = "";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		5C763D7BDB2DD421FAF13494 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		6222F8CDC7C3BD4B5AD9EF3B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.rickmakla.SoccerShotsTests;
+				SDKROOT = macosx;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/SoccerShots.app/Contents/MacOS/SoccerShots";
+			};
+			name = Release;
+		};
+		88F10640F189F2D9ACD4EB81 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = SoccerShots.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = SoccerShots;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.photography";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.rickmakla.SoccerShots;
+				PRODUCT_NAME = SoccerShots;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		8B57C489DA64E1D21D662DFE /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = SoccerShots.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = SoccerShots;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.photography";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.rickmakla.SoccerShots;
+				PRODUCT_NAME = SoccerShots;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		4912A36783E8969C8C616C9F /* Build configuration list for PBXNativeTarget "SoccerShots" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				88F10640F189F2D9ACD4EB81 /* Debug */,
+				8B57C489DA64E1D21D662DFE /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		8AEB63F10EB682C9FCB39070 /* Build configuration list for PBXProject "SoccerShots" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5C763D7BDB2DD421FAF13494 /* Debug */,
+				244F5B4A99CEB27512CC518D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		91E419A2067DD04FC0104091 /* Build configuration list for PBXNativeTarget "SoccerShotsTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				10F9F816452EA9DBA462F4A4 /* Debug */,
+				6222F8CDC7C3BD4B5AD9EF3B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		619D86BE8D699C891579B3CD /* XCRemoteSwiftPackageReference "swift-huggingface" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/huggingface/swift-huggingface.git";
+			requirement = {
+				kind = exactVersion;
+				version = 0.9.0;
+			};
+		};
+		E5B8F1A4A9EACCEAFF3443AF /* XCRemoteSwiftPackageReference "mlx-swift-lm" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/ml-explore/mlx-swift-lm.git";
+			requirement = {
+				kind = exactVersion;
+				version = 3.31.3;
+			};
+		};
+		ED249E04B1549F28045675B7 /* XCRemoteSwiftPackageReference "swift-transformers" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/huggingface/swift-transformers.git";
+			requirement = {
+				kind = exactVersion;
+				version = 1.3.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		0A7A934081D8FAE584249630 /* MLXLMCommon */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E5B8F1A4A9EACCEAFF3443AF /* XCRemoteSwiftPackageReference "mlx-swift-lm" */;
+			productName = MLXLMCommon;
+		};
+		1DBCD94B671B5B08C752C46B /* MLXVLM */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E5B8F1A4A9EACCEAFF3443AF /* XCRemoteSwiftPackageReference "mlx-swift-lm" */;
+			productName = MLXVLM;
+		};
+		30A8F24EE65D48160504FDE3 /* HuggingFace */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 619D86BE8D699C891579B3CD /* XCRemoteSwiftPackageReference "swift-huggingface" */;
+			productName = HuggingFace;
+		};
+		C352EC4F3AE6CF56E307708C /* Tokenizers */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = ED249E04B1549F28045675B7 /* XCRemoteSwiftPackageReference "swift-transformers" */;
+			productName = Tokenizers;
+		};
+		DCDD3076C44EB0B607E20300 /* MLXHuggingFace */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E5B8F1A4A9EACCEAFF3443AF /* XCRemoteSwiftPackageReference "mlx-swift-lm" */;
+			productName = MLXHuggingFace;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 83A704E3DC070B78A8FB5E1E /* Project object */;
+}
