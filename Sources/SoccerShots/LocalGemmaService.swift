@@ -3,6 +3,7 @@ import HuggingFace
 import MLXHuggingFace
 import MLXLMCommon
 import MLXVLM
+import Tokenizers
 
 actor LocalGemmaService {
     static let defaultModelID = "mlx-community/gemma-3-4b-it-4bit"
@@ -13,7 +14,7 @@ actor LocalGemmaService {
     private let preparer = ImagePreparer()
     private let parser = ScoringParser()
 
-    init(modelID: String = Self.defaultModelID, modelDirectory: URL = ModelStorage.defaultDirectory) {
+    init(modelID: String = LocalGemmaService.defaultModelID, modelDirectory: URL = ModelStorage.defaultDirectory) {
         self.modelID = modelID
         self.modelDirectory = modelDirectory
     }
