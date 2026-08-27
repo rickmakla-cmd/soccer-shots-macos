@@ -66,12 +66,6 @@ struct PhotoScore: Codable, Equatable, Sendable {
     var jerseyColor: String?
     var actionType: ActionType
 
-    static let weights: [(KeyPath<PhotoScore, Double?>, Double)] = [
-        (\.sharpness, 1.0), (\.faceEyes, 1.5), (\.peakAction, 1.5),
-        (\.ballInFrame, 1.0), (\.exposure, 0.75), (\.composition, 0.75),
-        (\.convergence, 2.0)
-    ]
-
     mutating func recalculateComposite() {
         guard !autoReject else {
             composite = 0
@@ -80,8 +74,13 @@ struct PhotoScore: Codable, Equatable, Sendable {
         }
         var total = 0.0
         var weight = 0.0
-        for (keyPath, itemWeight) in Self.weights {
-            if let value = self[keyPath: keyPath] {
+        let weightedValues: [(Double?, Double)] = [
+            (sharpness, 1.0), (faceEyes, 1.5), (peakAction, 1.5),
+            (ballInFrame, 1.0), (exposure, 0.75), (composition, 0.75),
+            (convergence, 2.0)
+        ]
+        for (value, itemWeight) in weightedValues {
+            if let value {
                 total += min(10, max(0, value)) * itemWeight
                 weight += itemWeight
             }
