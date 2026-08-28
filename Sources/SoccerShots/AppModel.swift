@@ -38,9 +38,12 @@ final class AppModel: ObservableObject {
     var visiblePhotos: [ScoredPhoto] {
         let filtered = completedScores.filter(galleryFilter.includes)
         switch gallerySort {
-        case .scoreDescending: filtered.sorted { $0.score.composite > $1.score.composite }
-        case .scoreAscending: filtered.sorted { $0.score.composite < $1.score.composite }
-        case .filename: filtered.sorted { $0.filename.localizedStandardCompare($1.filename) == .orderedAscending }
+        case .scoreDescending:
+            return filtered.sorted { $0.score.composite > $1.score.composite }
+        case .scoreAscending:
+            return filtered.sorted { $0.score.composite < $1.score.composite }
+        case .filename:
+            return filtered.sorted { $0.filename.localizedStandardCompare($1.filename) == .orderedAscending }
         }
     }
 
