@@ -5,7 +5,7 @@ enum ActionType: String, Codable, CaseIterable, Identifiable, Sendable {
     var id: String { rawValue }
 }
 
-enum GalleryFilter: String, CaseIterable, Identifiable, Sendable {
+enum GalleryFilter: String, Codable, CaseIterable, Identifiable, Sendable {
     case all = "All"
     case keepers = "Keepers"
     case nearMiss = "Near Miss"
@@ -27,7 +27,7 @@ enum GalleryFilter: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
-enum GallerySort: String, CaseIterable, Identifiable, Sendable {
+enum GallerySort: String, Codable, CaseIterable, Identifiable, Sendable {
     case scoreDescending = "Score: High to Low"
     case scoreAscending = "Score: Low to High"
     case filename = "Filename"
@@ -137,6 +137,30 @@ struct ScoredPhoto: Codable, Identifiable, Equatable, Sendable {
 
     func cacheMatches(fileSize currentSize: Int64, modificationDate currentDate: Date) -> Bool {
         fileSize == currentSize && abs(modificationDate.timeIntervalSince(currentDate)) < 0.001
+    }
+}
+
+struct PhotoBurst: Identifiable, Equatable, Sendable {
+    let id: String
+    let capturedAt: Date
+    let photos: [ScoredPhoto]
+
+    var bestScore: Double { photos.map(\.score.composite).max() ?? 0 }
+    var selectedCount: Int { photos.filter(\.isSelectedForExport).count }
+}
+
+enum BurstGrouping {
+    static func make(
+        discovered: [DiscoveredPhoto],
+        scored: [ScoredPhoto],
+        window: TimeInterval = 2
+    ) -> [PhotoBurst] {
+        let scoredByPath = Dictionary(uniqueKeysWithValues: scored.map { ($0.fileURL.path, $0) })
+        return PhotoDiscovery.burstGroups(discovered, window: window).compactMap { group in
+            let photos = group.compactMap { scoredByPath[$0.url.path] }
+            guard photos.count > 1, let capturedAt = group.first?.captureDate else { return nil }
+            return PhotoBurst(id: group[0].url.path, capturedAt: capturedAt, photos: photos)
+        }
     }
 }
 

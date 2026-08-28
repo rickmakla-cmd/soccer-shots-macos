@@ -18,9 +18,13 @@ This repository is a Swift/SwiftUI rewrite of the validated Electron prototype a
 - Full score-detail view with Lightroom guidance, metadata, selection/reject actions, and previous/next navigation.
 - Settings UI for the local model and Keychain-backed optional Gemini configuration.
 - Explicit per-photo Gemini Deep Review with structured JSON stored beside the unchanged local score.
+- Automatic restoration of the active folder, cached scores, gallery filter/sort, focused photo, and review decisions.
+- Security-scoped folder bookmarks with a path fallback and a clean close-session action.
+- EXIF-time burst detection and a rapid comparison workspace with keyboard-driven frame/burst navigation.
+- One-command burst winner selection that keeps the strongest frame and marks the remaining frames rejected.
 - Lightroom-compatible XMP generation primitives.
 
-Complete Lightroom export (including JPEG XMP embedding), editable metadata, session resume, burst comparison, and signed release automation remain follow-on milestones.
+Complete Lightroom export (including JPEG XMP embedding), editable metadata, comparison zoom synchronization, and signed release automation remain follow-on milestones.
 
 ## Requirements
 

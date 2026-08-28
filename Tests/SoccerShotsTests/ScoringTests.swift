@@ -61,7 +61,52 @@ struct ScoringTests {
         #expect(!GalleryFilter.nearMiss.includes(rejected))
     }
 
-    private func samplePhoto(composite: Double) -> ScoredPhoto {
+    @Test func burstGroupingMapsOnlyScoredNeighboringFrames() {
+        let start = Date(timeIntervalSince1970: 1_000)
+        let discovered = [
+            discoveredPhoto("IMG_1.jpg", captureDate: start),
+            discoveredPhoto("IMG_2.jpg", captureDate: start.addingTimeInterval(0.8)),
+            discoveredPhoto("IMG_3.jpg", captureDate: start.addingTimeInterval(5))
+        ]
+        let scored = [
+            samplePhoto(composite: 7.2, filename: "IMG_1.jpg"),
+            samplePhoto(composite: 8.4, filename: "IMG_2.jpg"),
+            samplePhoto(composite: 9.1, filename: "IMG_3.jpg")
+        ]
+
+        let bursts = BurstGrouping.make(discovered: discovered, scored: scored)
+        #expect(bursts.count == 1)
+        #expect(bursts[0].photos.count == 2)
+        #expect(bursts[0].bestScore == 8.4)
+    }
+
+    @Test func sessionStoreRoundTripsReviewPosition() throws {
+        let suite = "SoccerShotsTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = SessionStore(defaults: defaults, key: "session")
+        let snapshot = SessionSnapshot(
+            folderPath: "/game", folderBookmark: Data([1, 2, 3]),
+            selectedPhotoPath: "/game/IMG_2.jpg", galleryFilter: .nearMiss,
+            gallerySort: .filename, updatedAt: Date(timeIntervalSince1970: 500)
+        )
+
+        try store.save(snapshot)
+        #expect(store.load() == snapshot)
+        store.clear()
+        #expect(store.load() == nil)
+    }
+
+    private func discoveredPhoto(_ filename: String, captureDate: Date) -> DiscoveredPhoto {
+        let url = URL(fileURLWithPath: "/game/\(filename)")
+        return DiscoveredPhoto(
+            id: url, url: url, fileSize: 100, modificationDate: .distantPast,
+            captureDate: captureDate
+        )
+    }
+
+    private func samplePhoto(composite: Double, filename: String = "IMG_1.jpg") -> ScoredPhoto {
+        let url = URL(fileURLWithPath: "/game/\(filename)")
         let score = PhotoScore(
             autoReject: false, sharpness: 8, faceEyes: 7, peakAction: 7,
             ballInFrame: 7, exposure: 7, composition: 7, convergence: 7,
@@ -70,7 +115,7 @@ struct ScoringTests {
             jerseyColor: nil, actionType: .sprint
         )
         return ScoredPhoto(
-            id: UUID(), fileURL: URL(fileURLWithPath: "/game/IMG_1.jpg"), filename: "IMG_1.jpg",
+            id: UUID(), fileURL: url, filename: filename,
             fileSize: 100, modificationDate: .distantPast,
             sessionFolder: URL(fileURLWithPath: "/game"), scoredAt: .distantPast,
             scoringVersion: "v2", scoringEngine: "gemma-local", score: score,

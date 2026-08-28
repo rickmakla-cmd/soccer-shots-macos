@@ -6,15 +6,23 @@ import SwiftUI
 struct RootView: View {
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var model: AppModel
+    @State private var isShowingBurstComparison = false
 
     var body: some View {
         NavigationSplitView {
             List {
                 Section("Session") {
-                    Button("Choose Photo Folder…", systemImage: "folder") { model.chooseFolder() }
+                    Button("Choose Photo Folder…", systemImage: "folder") {
+                        model.chooseFolder(modelContext: modelContext)
+                    }
                     if let folder = model.selectedFolder {
                         LabeledContent("Folder", value: folder.lastPathComponent)
                         LabeledContent("Photos", value: "\(model.discoveredPhotos.count)")
+                        Button("Compare \(model.photoBursts.count) Bursts…", systemImage: "square.grid.2x2") {
+                            isShowingBurstComparison = true
+                        }
+                        .disabled(model.photoBursts.isEmpty)
+                        Button("Close Session", systemImage: "xmark.circle") { model.closeSession() }
                     }
                 }
                 if !model.discoveredPhotos.isEmpty {
@@ -51,7 +59,11 @@ struct RootView: View {
             }
             .safeAreaInset(edge: .bottom) { statusBar }
         }
+        .task { model.restoreSessionIfAvailable(modelContext: modelContext) }
         .sheet(isPresented: $model.isShowingSettings) { SettingsView() }
+        .sheet(isPresented: $isShowingBurstComparison) {
+            BurstComparisonView(isPresented: $isShowingBurstComparison)
+        }
         .alert("SoccerShots", isPresented: Binding(
             get: { model.presentedError != nil },
             set: { if !$0 { model.presentedError = nil } }
@@ -62,7 +74,7 @@ struct RootView: View {
 
     private var statusBar: some View {
         HStack {
-            if model.isScoring || model.isDeepReviewing { ProgressView().controlSize(.small) }
+            if model.isScoring || model.isDeepReviewing || model.isRestoringSession { ProgressView().controlSize(.small) }
             Text(model.isDeepReviewing ? "Gemini is performing an explicit Deep Review…" : model.progress.message)
                 .font(.callout).foregroundStyle(.secondary)
             Spacer()
@@ -92,6 +104,7 @@ private struct ScoreGallery: View {
     @EnvironmentObject private var model: AppModel
     @FocusState private var acceptsKeyboardInput: Bool
     @State private var isShowingDetail = false
+    @State private var isShowingBurstComparison = false
     private let columns = [GridItem(.adaptive(minimum: 220), spacing: 16)]
 
     var body: some View {
@@ -106,6 +119,12 @@ private struct ScoreGallery: View {
                         ForEach(GallerySort.allCases) { Text($0.rawValue).tag($0) }
                     }
                 } label: { Label(model.gallerySort.rawValue, systemImage: "arrow.up.arrow.down") }
+                Button {
+                    isShowingBurstComparison = true
+                } label: {
+                    Label("Compare Bursts", systemImage: "square.grid.2x2")
+                }
+                .disabled(model.photoBursts.isEmpty)
                 Text("\(model.visiblePhotos.count)").foregroundStyle(.secondary).monospacedDigit()
             }
             .padding(16).background(.bar)
@@ -154,6 +173,9 @@ private struct ScoreGallery: View {
             if let photo = model.selectedPhoto {
                 PhotoDetailView(photo: photo, isPresented: $isShowingDetail)
             }
+        }
+        .sheet(isPresented: $isShowingBurstComparison) {
+            BurstComparisonView(isPresented: $isShowingBurstComparison)
         }
     }
 }
