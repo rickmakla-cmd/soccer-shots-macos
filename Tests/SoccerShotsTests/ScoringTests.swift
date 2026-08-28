@@ -50,4 +50,32 @@ struct ScoringTests {
         #expect(builder.stars(for: 7.5) == 4)
         #expect(builder.escape("A & B <C> \"D\"") == "A &amp; B &lt;C&gt; &quot;D&quot;")
     }
+
+    @Test func galleryFiltersRespectManualRejectAndScoreBands() {
+        let photo = samplePhoto(composite: 7.4)
+        #expect(GalleryFilter.nearMiss.includes(photo))
+        #expect(!GalleryFilter.keepers.includes(photo))
+        var rejected = photo
+        rejected.isManuallyRejected = true
+        #expect(GalleryFilter.manuallyRejected.includes(rejected))
+        #expect(!GalleryFilter.nearMiss.includes(rejected))
+    }
+
+    private func samplePhoto(composite: Double) -> ScoredPhoto {
+        let score = PhotoScore(
+            autoReject: false, sharpness: 8, faceEyes: 7, peakAction: 7,
+            ballInFrame: 7, exposure: 7, composition: 7, convergence: 7,
+            composite: composite, lightroomSuggestions: [], developSettings: .init(),
+            keepRecommendation: composite >= 6.5, rejectReason: nil, jerseyNumber: nil,
+            jerseyColor: nil, actionType: .sprint
+        )
+        return ScoredPhoto(
+            id: UUID(), fileURL: URL(fileURLWithPath: "/game/IMG_1.jpg"), filename: "IMG_1.jpg",
+            fileSize: 100, modificationDate: .distantPast,
+            sessionFolder: URL(fileURLWithPath: "/game"), scoredAt: .distantPast,
+            scoringVersion: "v2", scoringEngine: "gemma-local", score: score,
+            deepReview: nil, isPostProcessed: false, isManuallyRejected: false,
+            isSelectedForExport: false
+        )
+    }
 }

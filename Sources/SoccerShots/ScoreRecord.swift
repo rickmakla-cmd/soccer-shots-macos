@@ -36,6 +36,10 @@ final class ScoreRecord {
     var score: PhotoScore? { try? JSONDecoder().decode(PhotoScore.self, from: scoreData) }
     var deepReview: DeepReview? { deepReviewData.flatMap { try? JSONDecoder().decode(DeepReview.self, from: $0) } }
 
+    func setDeepReview(_ review: DeepReview?) throws {
+        deepReviewData = try review.map { try JSONEncoder().encode($0) }
+    }
+
     func cacheMatches(_ photo: DiscoveredPhoto) -> Bool {
         fileSize == photo.fileSize && abs(modificationDate.timeIntervalSince(photo.modificationDate)) < 0.001
     }

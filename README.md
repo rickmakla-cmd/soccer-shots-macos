@@ -14,10 +14,13 @@ This repository is a Swift/SwiftUI rewrite of the validated Electron prototype a
 - Gemma 3 4B 4-bit scoring, defensive JSON parsing, and one repair attempt.
 - Deterministic composite calculation and the sharpness-only auto-reject rule.
 - SwiftData score persistence with size/mtime cache validation and session folder tracking.
-- Keychain storage primitive and Gemini Deep Review client with structured JSON output.
+- Filtered/sorted gallery, native focus ring, arrow-key navigation, Space export selection, Enter detail, and X reject controls.
+- Full score-detail view with Lightroom guidance, metadata, selection/reject actions, and previous/next navigation.
+- Settings UI for the local model and Keychain-backed optional Gemini configuration.
+- Explicit per-photo Gemini Deep Review with structured JSON stored beside the unchanged local score.
 - Lightroom-compatible XMP generation primitives.
 
-The gallery/detail workflow, settings UI, complete Lightroom export (including JPEG XMP embedding), burst comparison, and signed release automation remain follow-on milestones.
+Complete Lightroom export (including JPEG XMP embedding), editable metadata, session resume, burst comparison, and signed release automation remain follow-on milestones.
 
 ## Requirements
 

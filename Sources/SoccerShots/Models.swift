@@ -5,6 +5,36 @@ enum ActionType: String, Codable, CaseIterable, Identifiable, Sendable {
     var id: String { rawValue }
 }
 
+enum GalleryFilter: String, CaseIterable, Identifiable, Sendable {
+    case all = "All"
+    case keepers = "Keepers"
+    case nearMiss = "Near Miss"
+    case review = "Review"
+    case rejects = "Rejects"
+    case manuallyRejected = "Rejected"
+
+    var id: String { rawValue }
+
+    func includes(_ photo: ScoredPhoto) -> Bool {
+        switch self {
+        case .all: true
+        case .keepers: !photo.isManuallyRejected && photo.score.composite >= 8
+        case .nearMiss: !photo.isManuallyRejected && (7..<8).contains(photo.score.composite)
+        case .review: !photo.isManuallyRejected && (5..<7).contains(photo.score.composite)
+        case .rejects: !photo.isManuallyRejected && photo.score.composite < 5
+        case .manuallyRejected: photo.isManuallyRejected
+        }
+    }
+}
+
+enum GallerySort: String, CaseIterable, Identifiable, Sendable {
+    case scoreDescending = "Score: High to Low"
+    case scoreAscending = "Score: Low to High"
+    case filename = "Filename"
+
+    var id: String { rawValue }
+}
+
 struct DevelopSettings: Codable, Equatable, Sendable {
     var exposure2012: String? = nil
     var highlights2012: Int? = nil

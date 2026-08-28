@@ -4,6 +4,10 @@ struct GeminiDeepReviewClient: Sendable {
     var modelID = "gemini-2.5-pro"
     private let preparer = ImagePreparer()
 
+    init(modelID: String = "gemini-2.5-pro") {
+        self.modelID = modelID
+    }
+
     func review(photoURL: URL, localScore: PhotoScore, apiKey: String) async throws -> DeepReview {
         let prepared = try preparer.prepare(photoURL)
         let scoreJSON = String(data: try JSONEncoder().encode(localScore), encoding: .utf8) ?? "{}"
