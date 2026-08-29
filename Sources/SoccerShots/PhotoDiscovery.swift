@@ -19,7 +19,12 @@ struct PhotoDiscovery: Sendable {
     ]
     static let supportedExtensions = rasterExtensions.union(rawExtensions)
 
-    func discover(in folder: URL, fileManager: FileManager = .default) throws -> [DiscoveredPhoto] {
+    func discover(
+        in folder: URL,
+        fileManager: FileManager = .default,
+        cancellationCheck: () throws -> Void = { try Task.checkCancellation() }
+    ) throws -> [DiscoveredPhoto] {
+        try cancellationCheck()
         let keys: Set<URLResourceKey> = [.isRegularFileKey, .fileSizeKey, .contentModificationDateKey]
         guard let enumerator = fileManager.enumerator(
             at: folder,
@@ -29,6 +34,7 @@ struct PhotoDiscovery: Sendable {
 
         var candidates: [DiscoveredPhoto] = []
         for case let url as URL in enumerator {
+            try cancellationCheck()
             let ext = url.pathExtension.lowercased()
             guard Self.supportedExtensions.contains(ext) else { continue }
             let values = try url.resourceValues(forKeys: keys)
@@ -70,8 +76,9 @@ struct PhotoDiscovery: Sendable {
     }
 
     private func captureDate(for url: URL) -> Date? {
-        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
-              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+        let options = [kCGImageSourceShouldCache: false] as CFDictionary
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, options),
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, options) as? [CFString: Any],
               let exif = properties[kCGImagePropertyExifDictionary] as? [CFString: Any],
               let value = exif[kCGImagePropertyExifDateTimeOriginal] as? String else { return nil }
         let formatter = DateFormatter()

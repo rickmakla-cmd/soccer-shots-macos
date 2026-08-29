@@ -20,6 +20,7 @@ This repository is a Swift/SwiftUI rewrite of the validated Electron prototype a
 - Explicit per-photo Gemini Deep Review with structured JSON stored beside the unchanged local score.
 - Automatic restoration of the active folder, cached scores, gallery filter/sort, focused photo, and review decisions.
 - Security-scoped folder bookmarks with a path fallback and a clean close-session action.
+- Responsive background RAW discovery during folder selection and session restoration, with cancellation support.
 - EXIF-time burst detection and a rapid comparison workspace with keyboard-driven frame/burst navigation.
 - One-command burst winner selection that keeps the strongest frame and marks the remaining frames rejected.
 - Lightroom-compatible XMP generation primitives.

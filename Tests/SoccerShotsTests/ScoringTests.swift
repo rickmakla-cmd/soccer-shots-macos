@@ -97,6 +97,16 @@ struct ScoringTests {
         #expect(store.load() == nil)
     }
 
+    @Test func discoveryChecksCancellationBeforeTouchingFolder() {
+        struct Stop: Error {}
+        #expect(throws: Stop.self) {
+            try PhotoDiscovery().discover(
+                in: URL(fileURLWithPath: "/folder-that-should-not-be-read"),
+                cancellationCheck: { throw Stop() }
+            )
+        }
+    }
+
     private func discoveredPhoto(_ filename: String, captureDate: Date) -> DiscoveredPhoto {
         let url = URL(fileURLWithPath: "/game/\(filename)")
         return DiscoveredPhoto(

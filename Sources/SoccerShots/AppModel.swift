@@ -11,6 +11,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var isScoring = false
     @Published private(set) var isDeepReviewing = false
     @Published private(set) var isRestoringSession = false
+    @Published private(set) var isLoadingFolder = false
     @Published var selectedPhotoID: UUID?
     @Published var galleryFilter: GalleryFilter = .all { didSet { persistSession() } }
     @Published var gallerySort: GallerySort = .scoreDescending { didSet { persistSession() } }
@@ -21,11 +22,12 @@ final class AppModel: ObservableObject {
     @Published private(set) var geminiModelID: String
     @Published var presentedError: String?
 
-    private let discovery = PhotoDiscovery()
     private var scorer: LocalGemmaService
     private let keychain = KeychainStore()
     private let sessionStore = SessionStore()
     private var scoringTask: Task<Void, Never>?
+    private var folderLoadingTask: Task<Void, Never>?
+    private var folderLoadID: UUID?
     private var activeFolderBookmark: Data?
     private var securityScopedFolderURL: URL?
     private var hasAttemptedSessionRestore = false
@@ -62,6 +64,7 @@ final class AppModel: ObservableObject {
     }
 
     func chooseFolder(modelContext: ModelContext) {
+        guard !isLoadingFolder else { return }
         let panel = NSOpenPanel()
         panel.title = "Choose a soccer photo folder"
         panel.prompt = "Choose Folder"
@@ -73,21 +76,7 @@ final class AppModel: ObservableObject {
     }
 
     func inspectFolder(_ url: URL, modelContext: ModelContext) {
-        progress = .discovering
-        do {
-            activateFolderAccess(url)
-            activeFolderBookmark = try? url.bookmarkData(
-                options: [.withSecurityScope],
-                includingResourceValuesForKeys: nil,
-                relativeTo: nil
-            )
-            try loadFolder(url, modelContext: modelContext)
-            progress = .idle
-            persistSession()
-        } catch {
-            progress = .idle
-            presentedError = error.localizedDescription
-        }
+        beginFolderLoad(url, restoring: nil, modelContext: modelContext)
     }
 
     func restoreSessionIfAvailable(modelContext: ModelContext) {
@@ -95,34 +84,27 @@ final class AppModel: ObservableObject {
         hasAttemptedSessionRestore = true
         guard let snapshot = sessionStore.load() else { return }
 
-        isRestoringSession = true
-        progress = .discovering
-        defer { isRestoringSession = false }
         do {
             let folder = try restoredFolder(from: snapshot)
-            activateFolderAccess(folder)
-            activeFolderBookmark = try? folder.bookmarkData(
-                options: [.withSecurityScope],
-                includingResourceValuesForKeys: nil,
-                relativeTo: nil
-            )
-            try loadFolder(folder, modelContext: modelContext)
-            galleryFilter = snapshot.galleryFilter
-            gallerySort = snapshot.gallerySort
-            selectedPhotoID = snapshot.selectedPhotoPath.flatMap { path in
-                completedScores.first { $0.fileURL.path == path }?.id
-            } ?? visiblePhotos.first?.id
-            progress = .idle
-            persistSession()
+            beginFolderLoad(folder, restoring: snapshot, modelContext: modelContext)
         } catch {
             sessionStore.clear()
-            progress = .idle
             presentedError = "The previous session could not be restored. Choose the photo folder again.\n\n\(error.localizedDescription)"
         }
     }
 
+    func cancelFolderLoading() {
+        folderLoadingTask?.cancel()
+        folderLoadingTask = nil
+        folderLoadID = nil
+        isLoadingFolder = false
+        isRestoringSession = false
+        progress = .idle
+    }
+
     func closeSession() {
         scoringTask?.cancel()
+        cancelFolderLoading()
         securityScopedFolderURL?.stopAccessingSecurityScopedResource()
         securityScopedFolderURL = nil
         activeFolderBookmark = nil
@@ -135,7 +117,7 @@ final class AppModel: ObservableObject {
     }
 
     func startScoring(modelContext: ModelContext, isPostProcessed: Bool = false) {
-        guard !isScoring, let folder = selectedFolder, !discoveredPhotos.isEmpty else { return }
+        guard !isScoring, !isLoadingFolder, let folder = selectedFolder, !discoveredPhotos.isEmpty else { return }
         isScoring = true
         completedScores = []
         selectedPhotoID = nil
@@ -326,8 +308,67 @@ final class AppModel: ObservableObject {
         persistSession()
     }
 
-    private func loadFolder(_ url: URL, modelContext: ModelContext) throws {
-        let photos = try discovery.discover(in: url)
+    private func beginFolderLoad(
+        _ url: URL,
+        restoring snapshot: SessionSnapshot?,
+        modelContext: ModelContext
+    ) {
+        folderLoadingTask?.cancel()
+        let loadID = UUID()
+        folderLoadID = loadID
+        isLoadingFolder = true
+        isRestoringSession = snapshot != nil
+        progress = .discovering
+        activateFolderAccess(url)
+        activeFolderBookmark = try? url.bookmarkData(
+            options: [.withSecurityScope],
+            includingResourceValuesForKeys: nil,
+            relativeTo: nil
+        )
+
+        folderLoadingTask = Task { [weak self] in
+            guard let self else { return }
+            do {
+                let discoveryTask = Task.detached(priority: .userInitiated) {
+                    try PhotoDiscovery().discover(in: url)
+                }
+                let photos = try await withTaskCancellationHandler {
+                    try await discoveryTask.value
+                } onCancel: {
+                    discoveryTask.cancel()
+                }
+                try Task.checkCancellation()
+                guard folderLoadID == loadID else { return }
+                try applyFolder(url, photos: photos, modelContext: modelContext)
+                if let snapshot {
+                    galleryFilter = snapshot.galleryFilter
+                    gallerySort = snapshot.gallerySort
+                    selectedPhotoID = snapshot.selectedPhotoPath.flatMap { path in
+                        completedScores.first { $0.fileURL.path == path }?.id
+                    } ?? visiblePhotos.first?.id
+                }
+                progress = .idle
+                persistSession()
+            } catch is CancellationError {
+                guard folderLoadID == loadID else { return }
+                progress = .idle
+            } catch {
+                guard folderLoadID == loadID else { return }
+                if snapshot != nil { sessionStore.clear() }
+                progress = .idle
+                presentedError = snapshot == nil
+                    ? error.localizedDescription
+                    : "The previous session could not be restored. Choose the photo folder again.\n\n\(error.localizedDescription)"
+            }
+            guard folderLoadID == loadID else { return }
+            folderLoadingTask = nil
+            folderLoadID = nil
+            isLoadingFolder = false
+            isRestoringSession = false
+        }
+    }
+
+    private func applyFolder(_ url: URL, photos: [DiscoveredPhoto], modelContext: ModelContext) throws {
         let records = try modelContext.fetch(FetchDescriptor<ScoreRecord>())
         let cachedByPath = Dictionary(uniqueKeysWithValues: records.map { ($0.filepath, $0) })
         selectedFolder = url

@@ -15,6 +15,7 @@ struct RootView: View {
                     Button("Choose Photo Folder…", systemImage: "folder") {
                         model.chooseFolder(modelContext: modelContext)
                     }
+                    .disabled(model.isLoadingFolder)
                     if let folder = model.selectedFolder {
                         LabeledContent("Folder", value: folder.lastPathComponent)
                         LabeledContent("Photos", value: "\(model.discoveredPhotos.count)")
@@ -25,12 +26,21 @@ struct RootView: View {
                         Button("Close Session", systemImage: "xmark.circle") { model.closeSession() }
                     }
                 }
+                if model.isLoadingFolder {
+                    Section("Folder Scan") {
+                        HStack {
+                            ProgressView().controlSize(.small)
+                            Text(model.isRestoringSession ? "Restoring session…" : "Reading RAW metadata…")
+                        }
+                        Button("Cancel Folder Scan", role: .cancel) { model.cancelFolderLoading() }
+                    }
+                }
                 if !model.discoveredPhotos.isEmpty {
                     Section("Run") {
                         Button("Score \(model.discoveredPhotos.count) Originals", systemImage: "sparkles") {
                             model.startScoring(modelContext: modelContext)
                         }
-                        .disabled(model.isScoring)
+                        .disabled(model.isScoring || model.isLoadingFolder)
                         if model.isScoring {
                             Button("Cancel after current photo", role: .cancel) { model.cancelScoring() }
                         }
@@ -45,7 +55,9 @@ struct RootView: View {
             .navigationSplitViewColumnWidth(min: 230, ideal: 270)
         } detail: {
             Group {
-                if model.selectedFolder == nil {
+                if model.isLoadingFolder {
+                    FolderLoadingView()
+                } else if model.selectedFolder == nil {
                     ContentUnavailableView(
                         "Score Soccer Photos Locally",
                         systemImage: "photo.on.rectangle.angled",
@@ -74,7 +86,7 @@ struct RootView: View {
 
     private var statusBar: some View {
         HStack {
-            if model.isScoring || model.isDeepReviewing || model.isRestoringSession { ProgressView().controlSize(.small) }
+            if model.isScoring || model.isDeepReviewing || model.isLoadingFolder { ProgressView().controlSize(.small) }
             Text(model.isDeepReviewing ? "Gemini is performing an explicit Deep Review…" : model.progress.message)
                 .font(.callout).foregroundStyle(.secondary)
             Spacer()
@@ -84,6 +96,24 @@ struct RootView: View {
         .background(.bar)
     }
 }
+
+private struct FolderLoadingView: View {
+    @EnvironmentObject private var model: AppModel
+
+    var body: some View {
+        VStack(spacing: 18) {
+            ProgressView().controlSize(.large)
+            Text(model.isRestoringSession ? "Restoring your last session" : "Reading the photo folder")
+                .font(.title2.bold())
+            Text("SoccerShots is reading RAW metadata in the background. The app remains usable, and you can cancel from the sidebar.")
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 560)
+        }
+        .padding(40)
+    }
+}
+
 private struct ReadyToScoreView: View {
     @EnvironmentObject private var model: AppModel
 
@@ -94,7 +124,7 @@ private struct ReadyToScoreView: View {
             Text("\(model.discoveredPhotos.count) photos ready").font(.title2.bold())
             Text("RAW+JPEG pairs have been deduplicated. Scoring runs one photo at a time with local Gemma.")
                 .foregroundStyle(.secondary).multilineTextAlignment(.center).frame(maxWidth: 520)
-            if model.isScoring { ProgressView().controlSize(.large) }
+            if model.isScoring || model.isLoadingFolder { ProgressView().controlSize(.large) }
         }.padding(40)
     }
 }
