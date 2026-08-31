@@ -169,7 +169,7 @@ final class AppModel: ObservableObject {
                         sessionFolder: folder, scoredAt: Date(), scoringVersion: ScoringPrompt.version,
                         scoringEngine: "mlx:\(localModelID)", score: score, deepReview: nil,
                         isPostProcessed: isPostProcessed, isManuallyRejected: false,
-                        isSelectedForExport: score.keepRecommendation
+                        isSelectedForExport: false
                     )
                     if let stale = cachedByPath[photo.url.path] { modelContext.delete(stale) }
                     modelContext.insert(try ScoreRecord(photo: scored))
@@ -322,10 +322,46 @@ final class AppModel: ObservableObject {
     }
 
     func toggleExportSelection(for id: UUID, modelContext: ModelContext) {
-        updatePhoto(id: id, modelContext: modelContext) { photo, record in
-            photo.isSelectedForExport.toggle()
-            record?.isSelectedForExport = photo.isSelectedForExport
+        guard let photo = completedScores.first(where: { $0.id == id }) else { return }
+        setExportSelection(!photo.isSelectedForExport, for: [id])
+        commitExportSelections(for: [id], modelContext: modelContext)
+    }
+
+    func setVisibleExportSelection(_ selected: Bool, modelContext: ModelContext) {
+        let ids = Set(visiblePhotos.map(\.id))
+        guard !ids.isEmpty else { return }
+        setExportSelection(selected, for: ids)
+        commitExportSelections(for: ids, modelContext: modelContext)
+    }
+
+    /// Updates the gallery immediately while a pointer drag is in progress.
+    /// SwiftData is committed once at the end of the drag to avoid a disk write
+    /// for every card the pointer crosses.
+    func setExportSelection(_ selected: Bool, for ids: Set<UUID>) {
+        guard !ids.isEmpty else { return }
+        for index in completedScores.indices where ids.contains(completedScores[index].id) {
+            completedScores[index].isSelectedForExport = selected
         }
+    }
+
+    func commitExportSelections(for ids: Set<UUID>, modelContext: ModelContext) {
+        guard !ids.isEmpty else { return }
+        let photos = completedScores.filter { ids.contains($0.id) }
+        let selectedByPath = Dictionary(uniqueKeysWithValues: photos.map {
+            ($0.fileURL.path, $0.isSelectedForExport)
+        })
+        do {
+            let records = try modelContext.fetch(FetchDescriptor<ScoreRecord>())
+            for record in records {
+                if let selected = selectedByPath[record.filepath] {
+                    record.isSelectedForExport = selected
+                }
+            }
+            try modelContext.save()
+        } catch {
+            presentedError = error.localizedDescription
+        }
+        persistSession()
     }
 
     func toggleManualReject(for id: UUID, modelContext: ModelContext) {

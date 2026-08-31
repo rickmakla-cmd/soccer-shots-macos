@@ -157,7 +157,15 @@ private struct ScoreGallery: View {
     @FocusState private var acceptsKeyboardInput: Bool
     @State private var isShowingDetail = false
     @State private var isShowingBurstComparison = false
+    @State private var photoFrames: [UUID: CGRect] = [:]
+    @State private var dragSelectionValue: Bool?
+    @State private var dragSelectionIDs: Set<UUID> = []
+    @State private var dragLastID: UUID?
     private let columns = [GridItem(.adaptive(minimum: 220), spacing: 16)]
+
+    private var visibleSelectedCount: Int {
+        model.visiblePhotos.filter(\.isSelectedForExport).count
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -177,7 +185,22 @@ private struct ScoreGallery: View {
                     Label("Compare Bursts", systemImage: "square.grid.2x2")
                 }
                 .disabled(model.photoBursts.isEmpty)
-                Text("\(model.visiblePhotos.count)").foregroundStyle(.secondary).monospacedDigit()
+                Divider().frame(height: 20)
+                Button("Select All") {
+                    model.setVisibleExportSelection(true, modelContext: modelContext)
+                }
+                .disabled(visibleSelectedCount == model.visiblePhotos.count)
+                .keyboardShortcut("a", modifiers: .command)
+                .help("Select every photo in the current filter")
+                Button("Deselect All") {
+                    model.setVisibleExportSelection(false, modelContext: modelContext)
+                }
+                .disabled(visibleSelectedCount == 0)
+                .keyboardShortcut("a", modifiers: [.command, .shift])
+                .help("Deselect every photo in the current filter")
+                Text("\(visibleSelectedCount) selected · \(model.visiblePhotos.count) shown")
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
             }
             .padding(16).background(.bar)
 
@@ -189,6 +212,14 @@ private struct ScoreGallery: View {
                         ForEach(model.visiblePhotos) { photo in
                             PhotoCard(photo: photo, isFocused: model.selectedPhotoID == photo.id)
                                 .contentShape(Rectangle())
+                                .background {
+                                    GeometryReader { proxy in
+                                        Color.clear.preference(
+                                            key: PhotoFramePreferenceKey.self,
+                                            value: [photo.id: proxy.frame(in: .named("scoreGallery"))]
+                                        )
+                                    }
+                                }
                                 .onTapGesture { model.selectPhoto(photo.id) }
                                 .onTapGesture(count: 2) {
                                     model.selectPhoto(photo.id)
@@ -197,6 +228,9 @@ private struct ScoreGallery: View {
                         }
                     }.padding(20)
                 }
+                .coordinateSpace(name: "scoreGallery")
+                .onPreferenceChange(PhotoFramePreferenceKey.self) { photoFrames = $0 }
+                .simultaneousGesture(selectionDragGesture)
             }
         }
         .focusable()
@@ -230,6 +264,40 @@ private struct ScoreGallery: View {
             BurstComparisonView(isPresented: $isShowingBurstComparison)
         }
     }
+
+    private var selectionDragGesture: some Gesture {
+        DragGesture(minimumDistance: 0, coordinateSpace: .named("scoreGallery"))
+            .onChanged { value in
+                guard !model.isScoring, !model.isBenchmarking,
+                      let id = photoFrames.first(where: { $0.value.contains(value.location) })?.key,
+                      let photo = model.completedScores.first(where: { $0.id == id }) else { return }
+
+                if dragSelectionValue == nil {
+                    dragSelectionValue = !photo.isSelectedForExport
+                }
+                guard !dragSelectionIDs.contains(id), let selected = dragSelectionValue else { return }
+                dragSelectionIDs.insert(id)
+                dragLastID = id
+                model.setExportSelection(selected, for: [id])
+            }
+            .onEnded { _ in
+                if !dragSelectionIDs.isEmpty {
+                    model.commitExportSelections(for: dragSelectionIDs, modelContext: modelContext)
+                }
+                if let dragLastID { model.selectPhoto(dragLastID) }
+                dragSelectionValue = nil
+                dragSelectionIDs = []
+                dragLastID = nil
+            }
+    }
+}
+
+private struct PhotoFramePreferenceKey: PreferenceKey {
+    static let defaultValue: [UUID: CGRect] = [:]
+
+    static func reduce(value: inout [UUID: CGRect], nextValue: () -> [UUID: CGRect]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, latest in latest })
+    }
 }
 
 private struct PhotoCard: View {
@@ -245,11 +313,10 @@ private struct PhotoCard: View {
                 Text(String(format: "%.1f", photo.score.composite))
                     .font(.headline.monospacedDigit()).padding(.horizontal, 8).padding(.vertical, 5)
                     .background(.black.opacity(0.72), in: Capsule()).foregroundStyle(.white).padding(8)
-                if photo.isSelectedForExport {
-                    Image(systemName: "checkmark.circle.fill").foregroundStyle(.cyan)
-                        .background(.black.opacity(0.6), in: Circle()).padding(8)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
-                }
+                Image(systemName: photo.isSelectedForExport ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(photo.isSelectedForExport ? .cyan : .white.opacity(0.8))
+                    .background(.black.opacity(0.6), in: Circle()).padding(8)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
             }
             Text(photo.filename).font(.headline).lineLimit(1)
             HStack {
