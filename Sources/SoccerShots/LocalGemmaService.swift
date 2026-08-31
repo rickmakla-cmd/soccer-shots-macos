@@ -34,7 +34,8 @@ actor LocalGemmaService {
         let response = try await session.respond(
             to: ScoringPrompt.text,
             images: [.ciImage(image.ciImage)],
-            videos: []
+            videos: [],
+            audios: []
         )
         do { return try parser.parse(response) }
         catch {
@@ -77,7 +78,8 @@ actor LocalGemmaService {
             {"left":"basic color name","right":"basic color name"}
             """,
             images: [.ciImage(testImage)],
-            videos: []
+            videos: [],
+            audios: []
         )
 
         guard let jsonStart = response.firstIndex(of: "{"),
@@ -104,7 +106,7 @@ actor LocalGemmaService {
         if let container { return container }
         try FileManager.default.createDirectory(at: modelDirectory, withIntermediateDirectories: true)
         let hub = HubClient(cache: HubCache(cacheDirectory: modelDirectory))
-        let legacyGemmaEOS = modelID.lowercased().contains("gemma-3") ? ["<end_of_turn>"] : []
+        let legacyGemmaEOS: Set<String> = modelID.lowercased().contains("gemma-3") ? ["<end_of_turn>"] : []
         let configuration = ModelConfiguration(
             id: modelID,
             defaultPrompt: "",
