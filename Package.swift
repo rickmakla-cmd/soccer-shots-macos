@@ -9,7 +9,7 @@ let package = Package(
         .executable(name: "SoccerShots", targets: ["SoccerShots"])
     ],
     dependencies: [
-        .package(url: "https://github.com/ml-explore/mlx-swift-lm.git", exact: "3.31.3"),
+        .package(url: "https://github.com/ml-explore/mlx-swift-lm.git", exact: "3.31.4"),
         .package(url: "https://github.com/huggingface/swift-huggingface.git", exact: "0.9.0"),
         .package(url: "https://github.com/huggingface/swift-transformers.git", exact: "1.3.0")
     ],

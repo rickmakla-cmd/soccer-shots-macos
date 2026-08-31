@@ -9,6 +9,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var completedScores: [ScoredPhoto] = []
     @Published private(set) var progress: ScoringProgress = .idle
     @Published private(set) var isScoring = false
+    @Published private(set) var isBenchmarking = false
     @Published private(set) var isDeepReviewing = false
     @Published private(set) var isRestoringSession = false
     @Published private(set) var isLoadingFolder = false
@@ -19,13 +20,16 @@ final class AppModel: ObservableObject {
     @Published private(set) var isGeminiConfigured = false
     @Published private(set) var modelDiskUsageBytes: Int64 = 0
     @Published private(set) var localModelID: String
+    @Published private(set) var benchmarkModelID: String
     @Published private(set) var geminiModelID: String
+    @Published private(set) var benchmarkProgress: BenchmarkProgress = .idle
     @Published var presentedError: String?
 
     private var scorer: LocalGemmaService
     private let keychain = KeychainStore()
     private let sessionStore = SessionStore()
     private var scoringTask: Task<Void, Never>?
+    private var benchmarkTask: Task<Void, Never>?
     private var folderLoadingTask: Task<Void, Never>?
     private var folderLoadID: UUID?
     private var activeFolderBookmark: Data?
@@ -36,6 +40,8 @@ final class AppModel: ObservableObject {
         let defaults = UserDefaults.standard
         let localID = defaults.string(forKey: "SoccerShots.localModelID") ?? LocalGemmaService.defaultModelID
         localModelID = localID
+        benchmarkModelID = defaults.string(forKey: "SoccerShots.benchmarkModelID")
+            ?? LocalGemmaService.defaultBenchmarkModelID
         geminiModelID = defaults.string(forKey: "SoccerShots.geminiModelID") ?? "gemini-2.5-pro"
         scorer = LocalGemmaService(modelID: localID)
         isGeminiConfigured = keychain.geminiAPIKey()?.isEmpty == false
@@ -63,8 +69,16 @@ final class AppModel: ObservableObject {
         BurstGrouping.make(discovered: discoveredPhotos, scored: completedScores)
     }
 
+    var benchmarkedPhotos: [ScoredPhoto] {
+        completedScores.filter { $0.benchmarkResult?.modelID == benchmarkModelID }
+    }
+
+    var benchmarkSummary: BenchmarkSummary? {
+        BenchmarkAnalysis.summary(for: benchmarkedPhotos)
+    }
+
     func chooseFolder(modelContext: ModelContext) {
-        guard !isLoadingFolder else { return }
+        guard !isLoadingFolder, !isBenchmarking else { return }
         let panel = NSOpenPanel()
         panel.title = "Choose a soccer photo folder"
         panel.prompt = "Choose Folder"
@@ -104,6 +118,7 @@ final class AppModel: ObservableObject {
 
     func closeSession() {
         scoringTask?.cancel()
+        benchmarkTask?.cancel()
         cancelFolderLoading()
         securityScopedFolderURL?.stopAccessingSecurityScopedResource()
         securityScopedFolderURL = nil
@@ -113,11 +128,14 @@ final class AppModel: ObservableObject {
         completedScores = []
         selectedPhotoID = nil
         progress = .idle
+        benchmarkProgress = .idle
+        isBenchmarking = false
         sessionStore.clear()
     }
 
     func startScoring(modelContext: ModelContext, isPostProcessed: Bool = false) {
-        guard !isScoring, !isLoadingFolder, let folder = selectedFolder, !discoveredPhotos.isEmpty else { return }
+        guard !isScoring, !isBenchmarking, !isLoadingFolder,
+              let folder = selectedFolder, !discoveredPhotos.isEmpty else { return }
         isScoring = true
         completedScores = []
         selectedPhotoID = nil
@@ -149,7 +167,7 @@ final class AppModel: ObservableObject {
                         id: UUID(), fileURL: photo.url, filename: photo.url.lastPathComponent,
                         fileSize: photo.fileSize, modificationDate: photo.modificationDate,
                         sessionFolder: folder, scoredAt: Date(), scoringVersion: ScoringPrompt.version,
-                        scoringEngine: "gemma-local", score: score, deepReview: nil,
+                        scoringEngine: "mlx:\(localModelID)", score: score, deepReview: nil,
                         isPostProcessed: isPostProcessed, isManuallyRejected: false,
                         isSelectedForExport: score.keepRecommendation
                     )
@@ -177,6 +195,99 @@ final class AppModel: ObservableObject {
     }
 
     func cancelScoring() { scoringTask?.cancel() }
+
+    func startBenchmark(sampleCount: Int, modelContext: ModelContext) {
+        guard !isScoring, !isBenchmarking, !isDeepReviewing, !isLoadingFolder else { return }
+        let candidates = BenchmarkAnalysis.evenlySpaced(visiblePhotos, count: sampleCount)
+        guard !candidates.isEmpty else { return }
+        let candidateModelID = benchmarkModelID
+        isBenchmarking = true
+        benchmarkProgress = .unloadingPrimary
+
+        benchmarkTask = Task { [weak self] in
+            guard let self else { return }
+            await scorer.unload()
+            guard !Task.isCancelled else {
+                isBenchmarking = false
+                benchmarkProgress = .idle
+                benchmarkTask = nil
+                return
+            }
+
+            let candidateScorer = LocalGemmaService(modelID: candidateModelID)
+            var completed = 0
+            var failed = 0
+            var lastFailure: String?
+
+            do {
+                try await candidateScorer.verifyVision { [weak self] message in
+                    Task { @MainActor in self?.benchmarkProgress = .model("Gemma 4: \(message)") }
+                }
+            } catch is CancellationError {
+                await candidateScorer.unload()
+                isBenchmarking = false
+                benchmarkProgress = .idle
+                benchmarkTask = nil
+                return
+            } catch {
+                await candidateScorer.unload()
+                isBenchmarking = false
+                benchmarkProgress = .finished(completed: 0, failed: candidates.count)
+                benchmarkTask = nil
+                refreshModelDiskUsage()
+                presentedError = error.localizedDescription
+                return
+            }
+
+            for (offset, candidate) in candidates.enumerated() {
+                guard !Task.isCancelled else { break }
+                let index = offset + 1
+                benchmarkProgress = .preparing(
+                    index: index,
+                    total: candidates.count,
+                    filename: candidate.filename
+                )
+                let startedAt = Date()
+                do {
+                    let score = try await candidateScorer.score(photoURL: candidate.fileURL) { [weak self] message in
+                        Task { @MainActor in self?.benchmarkProgress = .model("Gemma 4: \(message)") }
+                    }
+                    try Task.checkCancellation()
+                    let result = ModelBenchmarkResult(
+                        modelID: candidateModelID,
+                        scoredAt: Date(),
+                        durationSeconds: Date().timeIntervalSince(startedAt),
+                        score: score
+                    )
+                    guard let current = completedScores.firstIndex(where: { $0.fileURL.path == candidate.fileURL.path }) else {
+                        continue
+                    }
+                    completedScores[current].benchmarkResult = result
+                    if let record = try? record(for: candidate.fileURL.path, modelContext: modelContext) {
+                        try record.setBenchmarkResult(result)
+                        try modelContext.save()
+                    }
+                    completed += 1
+                } catch is CancellationError {
+                    break
+                } catch {
+                    failed += 1
+                    lastFailure = "\(candidate.filename): \(error.localizedDescription)"
+                }
+            }
+
+            await candidateScorer.unload()
+            benchmarkProgress = .finished(completed: completed, failed: failed)
+            isBenchmarking = false
+            benchmarkTask = nil
+            refreshModelDiskUsage()
+            if completed == 0, let lastFailure {
+                presentedError = "Gemma 4 could not complete the benchmark.\n\n\(lastFailure)"
+            }
+        }
+    }
+
+    func cancelBenchmark() { benchmarkTask?.cancel() }
 
     func selectPhoto(_ id: UUID?) {
         selectedPhotoID = id
@@ -250,6 +361,13 @@ final class AppModel: ObservableObject {
         scorer = LocalGemmaService(modelID: trimmed)
     }
 
+    func updateBenchmarkModelID(_ modelID: String) {
+        let trimmed = modelID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed != benchmarkModelID else { return }
+        benchmarkModelID = trimmed
+        UserDefaults.standard.set(trimmed, forKey: "SoccerShots.benchmarkModelID")
+    }
+
     func refreshModelDiskUsage() {
         var total: Int64 = 0
         let keys: Set<URLResourceKey> = [.isRegularFileKey, .fileSizeKey]
@@ -268,7 +386,7 @@ final class AppModel: ObservableObject {
     }
 
     func runDeepReview(for id: UUID, modelContext: ModelContext) {
-        guard !isDeepReviewing,
+        guard !isDeepReviewing, !isBenchmarking,
               let index = completedScores.firstIndex(where: { $0.id == id }),
               let apiKey = keychain.geminiAPIKey(), !apiKey.isEmpty else {
             isShowingSettings = true
@@ -432,7 +550,8 @@ final class AppModel: ObservableObject {
             fileSize: record.fileSize, modificationDate: record.modificationDate,
             sessionFolder: URL(fileURLWithPath: record.sessionFolder), scoredAt: record.scoredAt,
             scoringVersion: record.scoringVersion, scoringEngine: record.scoringEngine,
-            score: score, deepReview: record.deepReview, isPostProcessed: record.isPostProcessed,
+            score: score, deepReview: record.deepReview, benchmarkResult: record.benchmarkResult,
+            isPostProcessed: record.isPostProcessed,
             isManuallyRejected: record.isManuallyRejected, isSelectedForExport: record.isSelectedForExport
         )
     }

@@ -7,6 +7,7 @@ struct RootView: View {
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var model: AppModel
     @State private var isShowingBurstComparison = false
+    @State private var isShowingBenchmark = false
 
     var body: some View {
         NavigationSplitView {
@@ -15,7 +16,7 @@ struct RootView: View {
                     Button("Choose Photo Folder…", systemImage: "folder") {
                         model.chooseFolder(modelContext: modelContext)
                     }
-                    .disabled(model.isLoadingFolder)
+                    .disabled(model.isLoadingFolder || model.isBenchmarking)
                     if let folder = model.selectedFolder {
                         LabeledContent("Folder", value: folder.lastPathComponent)
                         LabeledContent("Photos", value: "\(model.discoveredPhotos.count)")
@@ -24,6 +25,7 @@ struct RootView: View {
                         }
                         .disabled(model.photoBursts.isEmpty)
                         Button("Close Session", systemImage: "xmark.circle") { model.closeSession() }
+                            .disabled(model.isBenchmarking)
                     }
                 }
                 if model.isLoadingFolder {
@@ -40,9 +42,18 @@ struct RootView: View {
                         Button("Score \(model.discoveredPhotos.count) Originals", systemImage: "sparkles") {
                             model.startScoring(modelContext: modelContext)
                         }
-                        .disabled(model.isScoring || model.isLoadingFolder)
+                        .disabled(model.isScoring || model.isBenchmarking || model.isLoadingFolder)
                         if model.isScoring {
                             Button("Cancel after current photo", role: .cancel) { model.cancelScoring() }
+                        }
+                        if !model.completedScores.isEmpty {
+                            Button("A/B Benchmark…", systemImage: "arrow.left.arrow.right") {
+                                isShowingBenchmark = true
+                            }
+                            .disabled(model.isScoring || model.isBenchmarking || model.isDeepReviewing)
+                        }
+                        if model.isBenchmarking {
+                            Button("Cancel A/B after current photo", role: .cancel) { model.cancelBenchmark() }
                         }
                     }
                 }
@@ -76,6 +87,9 @@ struct RootView: View {
         .sheet(isPresented: $isShowingBurstComparison) {
             BurstComparisonView(isPresented: $isShowingBurstComparison)
         }
+        .sheet(isPresented: $isShowingBenchmark) {
+            BenchmarkView(isPresented: $isShowingBenchmark)
+        }
         .alert("SoccerShots", isPresented: Binding(
             get: { model.presentedError != nil },
             set: { if !$0 { model.presentedError = nil } }
@@ -86,14 +100,22 @@ struct RootView: View {
 
     private var statusBar: some View {
         HStack {
-            if model.isScoring || model.isDeepReviewing || model.isLoadingFolder { ProgressView().controlSize(.small) }
-            Text(model.isDeepReviewing ? "Gemini is performing an explicit Deep Review…" : model.progress.message)
+            if model.isScoring || model.isBenchmarking || model.isDeepReviewing || model.isLoadingFolder {
+                ProgressView().controlSize(.small)
+            }
+            Text(statusMessage)
                 .font(.callout).foregroundStyle(.secondary)
             Spacer()
             Text("Gemma local · offline primary").font(.caption).foregroundStyle(.tertiary)
         }
         .padding(.horizontal, 16).padding(.vertical, 10)
         .background(.bar)
+    }
+
+    private var statusMessage: String {
+        if model.isBenchmarking { return model.benchmarkProgress.message }
+        if model.isDeepReviewing { return "Gemini is performing an explicit Deep Review…" }
+        return model.progress.message
     }
 }
 
@@ -237,6 +259,17 @@ private struct PhotoCard: View {
                 Text(photo.isManuallyRejected ? "Rejected" : photo.score.keepRecommendation ? "Keeper" : "Review")
                     .foregroundStyle(photo.isManuallyRejected ? .red : photo.score.keepRecommendation ? .green : .secondary)
             }.font(.caption)
+            if let result = photo.benchmarkResult {
+                HStack {
+                    Text("Gemma 4")
+                    Spacer()
+                    Text(result.score.composite, format: .number.precision(.fractionLength(1))).monospacedDigit()
+                    Text(String(format: "%+.1f", result.score.composite - photo.score.composite))
+                        .monospacedDigit().foregroundStyle(.secondary)
+                }
+                .font(.caption2)
+                .foregroundStyle(.purple)
+            }
         }
         .padding(10)
         .background(.quaternary.opacity(0.45), in: RoundedRectangle(cornerRadius: 14))

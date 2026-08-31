@@ -16,6 +16,7 @@ final class ScoreRecord {
     var isSelectedForExport: Bool
     @Attribute(.externalStorage) var scoreData: Data
     @Attribute(.externalStorage) var deepReviewData: Data?
+    @Attribute(.externalStorage) var benchmarkData: Data?
 
     init(photo: ScoredPhoto) throws {
         filepath = photo.fileURL.path
@@ -31,13 +32,21 @@ final class ScoreRecord {
         isSelectedForExport = photo.isSelectedForExport
         scoreData = try JSONEncoder().encode(photo.score)
         deepReviewData = try photo.deepReview.map { try JSONEncoder().encode($0) }
+        benchmarkData = try photo.benchmarkResult.map { try JSONEncoder().encode($0) }
     }
 
     var score: PhotoScore? { try? JSONDecoder().decode(PhotoScore.self, from: scoreData) }
     var deepReview: DeepReview? { deepReviewData.flatMap { try? JSONDecoder().decode(DeepReview.self, from: $0) } }
+    var benchmarkResult: ModelBenchmarkResult? {
+        benchmarkData.flatMap { try? JSONDecoder().decode(ModelBenchmarkResult.self, from: $0) }
+    }
 
     func setDeepReview(_ review: DeepReview?) throws {
         deepReviewData = try review.map { try JSONEncoder().encode($0) }
+    }
+
+    func setBenchmarkResult(_ result: ModelBenchmarkResult?) throws {
+        benchmarkData = try result.map { try JSONEncoder().encode($0) }
     }
 
     func cacheMatches(_ photo: DiscoveredPhoto) -> Bool {

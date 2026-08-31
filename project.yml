@@ -3,7 +3,7 @@ name: SoccerShots
 packages:
   mlx-swift-lm:
     url: https://github.com/ml-explore/mlx-swift-lm.git
-    exactVersion: 3.31.3
+    exactVersion: 3.31.4
   swift-huggingface:
     url: https://github.com/huggingface/swift-huggingface.git
     exactVersion: 0.9.0

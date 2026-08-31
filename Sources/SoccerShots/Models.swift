@@ -78,6 +78,13 @@ struct DeepReview: Codable, Equatable, Sendable {
     }
 }
 
+struct ModelBenchmarkResult: Codable, Equatable, Sendable {
+    let modelID: String
+    let scoredAt: Date
+    let durationSeconds: Double
+    let score: PhotoScore
+}
+
 struct PhotoScore: Codable, Equatable, Sendable {
     var autoReject: Bool
     var sharpness: Double?
@@ -131,12 +138,55 @@ struct ScoredPhoto: Codable, Identifiable, Equatable, Sendable {
     let scoringEngine: String
     var score: PhotoScore
     var deepReview: DeepReview?
+    var benchmarkResult: ModelBenchmarkResult? = nil
     var isPostProcessed: Bool
     var isManuallyRejected: Bool
     var isSelectedForExport: Bool
 
     func cacheMatches(fileSize currentSize: Int64, modificationDate currentDate: Date) -> Bool {
         fileSize == currentSize && abs(modificationDate.timeIntervalSince(currentDate)) < 0.001
+    }
+}
+
+struct BenchmarkSummary: Equatable, Sendable {
+    let completed: Int
+    let averageBaseline: Double
+    let averageCandidate: Double
+    let averageDelta: Double
+    let keeperAgreementRate: Double
+    let averageDurationSeconds: Double
+}
+
+enum BenchmarkAnalysis {
+    static func evenlySpaced<T>(_ values: [T], count: Int) -> [T] {
+        guard !values.isEmpty, count > 0 else { return [] }
+        let target = min(count, values.count)
+        guard target > 1 else { return [values[values.count / 2]] }
+        guard target < values.count else { return values }
+        return (0..<target).map { offset in
+            let position = Double(offset) * Double(values.count - 1) / Double(target - 1)
+            return values[Int(position.rounded())]
+        }
+    }
+
+    static func summary(for photos: [ScoredPhoto]) -> BenchmarkSummary? {
+        let completed = photos.compactMap { photo -> (PhotoScore, ModelBenchmarkResult)? in
+            photo.benchmarkResult.map { (photo.score, $0) }
+        }
+        guard !completed.isEmpty else { return nil }
+        let count = Double(completed.count)
+        let baseline = completed.reduce(0) { $0 + $1.0.composite } / count
+        let candidate = completed.reduce(0) { $0 + $1.1.score.composite } / count
+        let agreements = completed.filter { $0.0.keepRecommendation == $0.1.score.keepRecommendation }.count
+        let duration = completed.reduce(0) { $0 + $1.1.durationSeconds } / count
+        return BenchmarkSummary(
+            completed: completed.count,
+            averageBaseline: baseline,
+            averageCandidate: candidate,
+            averageDelta: candidate - baseline,
+            keeperAgreementRate: Double(agreements) / count,
+            averageDurationSeconds: duration
+        )
     }
 }
 
@@ -180,6 +230,24 @@ enum ScoringProgress: Equatable, Sendable {
         case let .model(message): message
         case let .scoring(index, total, filename): "Scoring \(index) of \(total): \(filename)"
         case let .finished(completed, failed): "Finished: \(completed) scored, \(failed) failed"
+        }
+    }
+}
+
+enum BenchmarkProgress: Equatable, Sendable {
+    case idle
+    case unloadingPrimary
+    case preparing(index: Int, total: Int, filename: String)
+    case model(String)
+    case finished(completed: Int, failed: Int)
+
+    var message: String {
+        switch self {
+        case .idle: "Benchmark ready"
+        case .unloadingPrimary: "Releasing Gemma 3 memory before loading Gemma 4…"
+        case let .preparing(index, total, filename): "Gemma 4 benchmark \(index) of \(total): \(filename)"
+        case let .model(message): message
+        case let .finished(completed, failed): "A/B finished: \(completed) compared, \(failed) failed"
         }
     }
 }

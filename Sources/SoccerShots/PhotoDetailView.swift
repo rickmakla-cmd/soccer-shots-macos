@@ -32,6 +32,7 @@ struct PhotoDetailView: View {
                         scoreBreakdown
                         suggestions
                         metadata
+                        benchmarkComparison
                         deepReview
                     }.padding(20)
                 }
@@ -119,12 +120,43 @@ struct PhotoDetailView: View {
                     if model.isDeepReviewing { ProgressView() }
                     else { Label(current.deepReview == nil ? "Deep Review This Photo" : "Run Deep Review Again", systemImage: "cloud") }
                 }
-                .disabled(model.isDeepReviewing)
+                .disabled(model.isDeepReviewing || model.isBenchmarking)
                 if !model.isGeminiConfigured {
                     Button("Configure Gemini in Settings") { model.isShowingSettings = true }
                         .buttonStyle(.link)
                 }
             }.frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    @ViewBuilder
+    private var benchmarkComparison: some View {
+        if let result = current.benchmarkResult {
+            GroupBox("Local A/B comparison") {
+                VStack(alignment: .leading, spacing: 10) {
+                    Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 8) {
+                        GridRow {
+                            Text("Primary").foregroundStyle(.secondary)
+                            Text(current.score.composite, format: .number.precision(.fractionLength(1))).monospacedDigit()
+                            Text(current.score.keepRecommendation ? "Keep" : "Review")
+                        }
+                        GridRow {
+                            Text("Gemma 4").foregroundStyle(.secondary)
+                            Text(result.score.composite, format: .number.precision(.fractionLength(1))).monospacedDigit()
+                            Text(result.score.keepRecommendation ? "Keep" : "Review")
+                        }
+                        GridRow {
+                            Text("Difference").foregroundStyle(.secondary)
+                            Text(String(format: "%+.1f", result.score.composite - current.score.composite)).monospacedDigit()
+                            Text(result.durationSeconds, format: .number.precision(.fractionLength(1))) + Text(" sec")
+                        }
+                    }
+                    Text(result.modelID).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
+                    Text("The candidate result is observational only and has not changed this photo's keeper or rejection state.")
+                        .font(.callout).foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
     }
 }

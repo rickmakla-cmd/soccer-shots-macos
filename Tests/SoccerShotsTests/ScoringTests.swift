@@ -107,6 +107,41 @@ struct ScoringTests {
         }
     }
 
+    @Test func benchmarkSamplingSpansTheWholeSortedRange() {
+        let values = Array(0..<10)
+        #expect(BenchmarkAnalysis.evenlySpaced(values, count: 4) == [0, 3, 6, 9])
+        #expect(BenchmarkAnalysis.evenlySpaced(values, count: 1) == [5])
+        #expect(BenchmarkAnalysis.evenlySpaced(values, count: 20) == values)
+        #expect(BenchmarkAnalysis.evenlySpaced(values, count: 0).isEmpty)
+    }
+
+    @Test func benchmarkSummaryKeepsPrimaryAndCandidateSeparate() throws {
+        var first = samplePhoto(composite: 7.0, filename: "IMG_1.jpg")
+        var second = samplePhoto(composite: 8.0, filename: "IMG_2.jpg")
+        var candidateOne = first.score
+        candidateOne.composite = 8.0
+        candidateOne.keepRecommendation = true
+        var candidateTwo = second.score
+        candidateTwo.composite = 7.0
+        candidateTwo.keepRecommendation = false
+        first.benchmarkResult = ModelBenchmarkResult(
+            modelID: "gemma-4", scoredAt: .distantPast, durationSeconds: 12, score: candidateOne
+        )
+        second.benchmarkResult = ModelBenchmarkResult(
+            modelID: "gemma-4", scoredAt: .distantPast, durationSeconds: 18, score: candidateTwo
+        )
+
+        let summary = try #require(BenchmarkAnalysis.summary(for: [first, second]))
+        #expect(summary.completed == 2)
+        #expect(summary.averageBaseline == 7.5)
+        #expect(summary.averageCandidate == 7.5)
+        #expect(summary.averageDelta == 0)
+        #expect(summary.keeperAgreementRate == 0.5)
+        #expect(summary.averageDurationSeconds == 15)
+        #expect(first.score.composite == 7.0)
+        #expect(second.score.composite == 8.0)
+    }
+
     private func discoveredPhoto(_ filename: String, captureDate: Date) -> DiscoveredPhoto {
         let url = URL(fileURLWithPath: "/game/\(filename)")
         return DiscoveredPhoto(
