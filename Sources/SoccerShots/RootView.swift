@@ -158,9 +158,11 @@ private struct ScoreGallery: View {
     @State private var isShowingDetail = false
     @State private var isShowingBurstComparison = false
     @State private var photoFrames: [UUID: CGRect] = [:]
-    @State private var dragSelectionValue: Bool?
-    @State private var dragSelectionIDs: Set<UUID> = []
-    @State private var dragLastID: UUID?
+    @State private var marqueeStart: CGPoint?
+    @State private var marqueeCurrent: CGPoint?
+    @State private var marqueeBaselineIDs: Set<UUID> = []
+    @State private var marqueeCurrentIDs: Set<UUID> = []
+    @State private var marqueeTouchedIDs: Set<UUID> = []
     private let columns = [GridItem(.adaptive(minimum: 220), spacing: 16)]
 
     private var visibleSelectedCount: Int {
@@ -220,7 +222,10 @@ private struct ScoreGallery: View {
                                         )
                                     }
                                 }
-                                .onTapGesture { model.selectPhoto(photo.id) }
+                                .onTapGesture {
+                                    model.selectPhoto(photo.id)
+                                    model.toggleExportSelection(for: photo.id, modelContext: modelContext)
+                                }
                                 .onTapGesture(count: 2) {
                                     model.selectPhoto(photo.id)
                                     isShowingDetail = true
@@ -230,7 +235,8 @@ private struct ScoreGallery: View {
                 }
                 .coordinateSpace(name: "scoreGallery")
                 .onPreferenceChange(PhotoFramePreferenceKey.self) { photoFrames = $0 }
-                .simultaneousGesture(selectionDragGesture)
+                .overlay { marqueeOverlay }
+                .highPriorityGesture(marqueeSelectionGesture)
             }
         }
         .focusable()
@@ -265,30 +271,68 @@ private struct ScoreGallery: View {
         }
     }
 
-    private var selectionDragGesture: some Gesture {
-        DragGesture(minimumDistance: 0, coordinateSpace: .named("scoreGallery"))
+    private var marqueeSelectionGesture: some Gesture {
+        DragGesture(minimumDistance: 5, coordinateSpace: .named("scoreGallery"))
             .onChanged { value in
-                guard !model.isScoring, !model.isBenchmarking,
-                      let id = photoFrames.first(where: { $0.value.contains(value.location) })?.key,
-                      let photo = model.completedScores.first(where: { $0.id == id }) else { return }
-
-                if dragSelectionValue == nil {
-                    dragSelectionValue = !photo.isSelectedForExport
+                guard !model.isScoring, !model.isBenchmarking else { return }
+                if marqueeStart == nil {
+                    marqueeStart = value.startLocation
+                    marqueeBaselineIDs = Set(model.visiblePhotos.filter(\.isSelectedForExport).map(\.id))
                 }
-                guard !dragSelectionIDs.contains(id), let selected = dragSelectionValue else { return }
-                dragSelectionIDs.insert(id)
-                dragLastID = id
-                model.setExportSelection(selected, for: [id])
+                marqueeCurrent = value.location
+                updateMarqueeSelection()
             }
             .onEnded { _ in
-                if !dragSelectionIDs.isEmpty {
-                    model.commitExportSelections(for: dragSelectionIDs, modelContext: modelContext)
+                if !marqueeTouchedIDs.isEmpty {
+                    model.commitExportSelections(for: marqueeTouchedIDs, modelContext: modelContext)
                 }
-                if let dragLastID { model.selectPhoto(dragLastID) }
-                dragSelectionValue = nil
-                dragSelectionIDs = []
-                dragLastID = nil
+                if let id = marqueeCurrentIDs.first { model.selectPhoto(id) }
+                marqueeStart = nil
+                marqueeCurrent = nil
+                marqueeBaselineIDs = []
+                marqueeCurrentIDs = []
+                marqueeTouchedIDs = []
             }
+    }
+
+    @ViewBuilder
+    private var marqueeOverlay: some View {
+        if let rect = marqueeRect {
+            Rectangle()
+                .fill(Color.accentColor.opacity(0.16))
+                .overlay {
+                    Rectangle().stroke(Color.accentColor, lineWidth: 1.5)
+                }
+                .frame(width: rect.width, height: rect.height)
+                .position(x: rect.midX, y: rect.midY)
+                .allowsHitTesting(false)
+        }
+    }
+
+    private var marqueeRect: CGRect? {
+        guard let start = marqueeStart, let current = marqueeCurrent else { return nil }
+        return CGRect(
+            x: min(start.x, current.x),
+            y: min(start.y, current.y),
+            width: abs(current.x - start.x),
+            height: abs(current.y - start.y)
+        )
+    }
+
+    private func updateMarqueeSelection() {
+        guard let rect = marqueeRect else { return }
+        let inside = Set(photoFrames.compactMap { id, frame in
+            rect.intersects(frame) ? id : nil
+        })
+        let previouslySelected = marqueeBaselineIDs.union(marqueeCurrentIDs)
+        let shouldBeSelected = marqueeBaselineIDs.union(inside)
+        let select = shouldBeSelected.subtracting(previouslySelected)
+        let deselect = previouslySelected.subtracting(shouldBeSelected)
+        model.setExportSelection(true, for: select)
+        model.setExportSelection(false, for: deselect)
+        marqueeTouchedIDs.formUnion(select)
+        marqueeTouchedIDs.formUnion(deselect)
+        marqueeCurrentIDs = inside
     }
 }
 

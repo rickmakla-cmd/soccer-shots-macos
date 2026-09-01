@@ -15,7 +15,7 @@ This repository is a Swift/SwiftUI rewrite of the validated Electron prototype a
 - Guarded local A/B benchmarking against Gemma 4 E4B, with evenly distributed sampling, per-photo timing, persisted candidate scores, and no changes to authoritative keeper decisions.
 - Deterministic composite calculation and the sharpness-only auto-reject rule.
 - SwiftData score persistence with size/mtime cache validation and session folder tracking.
-- Filtered/sorted gallery, filter-aware Select All/Deselect All, click-and-drag export selection, native focus ring, arrow-key navigation, Space export selection, Enter detail, and X reject controls.
+- Filtered/sorted gallery, filter-aware Select All/Deselect All, visible click-drag marquee selection, native focus ring, arrow-key navigation, Space export selection, Enter detail, and X reject controls.
 - Full score-detail view with Lightroom guidance, metadata, selection/reject actions, and previous/next navigation.
 - Settings UI for the local model and Keychain-backed optional Gemini configuration.
 - Explicit per-photo Gemini Deep Review with structured JSON stored beside the unchanged local score.
