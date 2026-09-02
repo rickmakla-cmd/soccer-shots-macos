@@ -17,6 +17,7 @@ struct PhotoDiscovery: Sendable {
         "cr3", "cr2", "nef", "nrw", "arw", "srf", "sr2", "raf", "orf", "rw2",
         "raw", "pef", "dng", "srw", "mrw", "dcr", "kdc", "3fr", "fff", "iiq", "x3f"
     ]
+    static let proprietaryRawExtensions = rawExtensions.subtracting(["dng"])
     static let supportedExtensions = rasterExtensions.union(rawExtensions)
 
     func discover(

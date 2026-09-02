@@ -11,6 +11,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var isScoring = false
     @Published private(set) var isBenchmarking = false
     @Published private(set) var isDeepReviewing = false
+    @Published private(set) var isExporting = false
     @Published private(set) var isRestoringSession = false
     @Published private(set) var isLoadingFolder = false
     @Published var selectedPhotoID: UUID?
@@ -23,7 +24,10 @@ final class AppModel: ObservableObject {
     @Published private(set) var benchmarkModelID: String
     @Published private(set) var geminiModelID: String
     @Published private(set) var benchmarkProgress: BenchmarkProgress = .idle
+    @Published private(set) var exportProgress: ExportProgress = .idle
+    @Published private(set) var lastExportFolder: URL?
     @Published var presentedError: String?
+    @Published var presentedNotice: String?
 
     private var scorer: LocalGemmaService
     private let keychain = KeychainStore()
@@ -31,6 +35,7 @@ final class AppModel: ObservableObject {
     private var scoringTask: Task<Void, Never>?
     private var benchmarkTask: Task<Void, Never>?
     private var folderLoadingTask: Task<Void, Never>?
+    private var exportTask: Task<Void, Never>?
     private var folderLoadID: UUID?
     private var activeFolderBookmark: Data?
     private var securityScopedFolderURL: URL?
@@ -77,8 +82,12 @@ final class AppModel: ObservableObject {
         BenchmarkAnalysis.summary(for: benchmarkedPhotos)
     }
 
+    var selectedForExport: [ScoredPhoto] {
+        completedScores.filter(\.isSelectedForExport)
+    }
+
     func chooseFolder(modelContext: ModelContext) {
-        guard !isLoadingFolder, !isBenchmarking else { return }
+        guard !isLoadingFolder, !isBenchmarking, !isExporting else { return }
         let panel = NSOpenPanel()
         panel.title = "Choose a soccer photo folder"
         panel.prompt = "Choose Folder"
@@ -119,6 +128,7 @@ final class AppModel: ObservableObject {
     func closeSession() {
         scoringTask?.cancel()
         benchmarkTask?.cancel()
+        exportTask?.cancel()
         cancelFolderLoading()
         securityScopedFolderURL?.stopAccessingSecurityScopedResource()
         securityScopedFolderURL = nil
@@ -130,11 +140,83 @@ final class AppModel: ObservableObject {
         progress = .idle
         benchmarkProgress = .idle
         isBenchmarking = false
+        isExporting = false
+        exportProgress = .idle
+        lastExportFolder = nil
         sessionStore.clear()
     }
 
+    func exportSelectedPhotos() {
+        guard !isScoring, !isBenchmarking, !isDeepReviewing, !isLoadingFolder, !isExporting else { return }
+        let photos = selectedForExport
+        guard !photos.isEmpty else {
+            presentedError = "Select at least one photo before exporting."
+            return
+        }
+
+        let panel = NSOpenPanel()
+        panel.title = "Export selected originals and Lightroom XMP sidecars"
+        panel.message = "SoccerShots will copy each selected original and place a matching .xmp sidecar beside it. Existing files are never overwritten."
+        panel.prompt = "Export Here"
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.canCreateDirectories = true
+        panel.allowsMultipleSelection = false
+        guard panel.runModal() == .OK, let destination = panel.url else { return }
+
+        let hasNonSidecarFormat = photos.contains {
+            !PhotoDiscovery.proprietaryRawExtensions.contains($0.fileURL.pathExtension.lowercased())
+        }
+        let isAccessing = destination.startAccessingSecurityScopedResource()
+        isExporting = true
+        exportProgress = .exporting(index: 0, total: photos.count, filename: "Preparing export…")
+
+        exportTask = Task { [weak self] in
+            guard let self else { return }
+            defer {
+                if isAccessing { destination.stopAccessingSecurityScopedResource() }
+            }
+            let worker = Task.detached(priority: .userInitiated) {
+                try ExportService().export(photos: photos, to: destination) { update in
+                    Task { @MainActor [weak self] in self?.exportProgress = update }
+                }
+            }
+            do {
+                let result = try await withTaskCancellationHandler {
+                    try await worker.value
+                } onCancel: {
+                    worker.cancel()
+                }
+                lastExportFolder = destination
+                let formatNote = hasNonSidecarFormat
+                    ? "\n\nNote: Adobe automatically reads sidecar develop settings for camera RAW files. Raster files were copied with an XMP record, but Lightroom may require metadata to be embedded in those files."
+                    : ""
+                let failureNote = result.failures.isEmpty
+                    ? ""
+                    : "\n\n\(result.failures.prefix(3).joined(separator: "\n"))"
+                presentedNotice = "Exported \(result.exported) photo\(result.exported == 1 ? "" : "s") with Lightroom XMP to:\n\(destination.path)\n\nImport the originals from this folder into Lightroom Classic; the matching sidecars contain the rating and suggested develop settings.\(formatNote)\(failureNote)"
+            } catch is CancellationError {
+                exportProgress = .idle
+            } catch {
+                presentedError = "The export could not be completed.\n\n\(error.localizedDescription)"
+                exportProgress = .idle
+            }
+            isExporting = false
+            exportTask = nil
+        }
+    }
+
+    func cancelExport() {
+        exportTask?.cancel()
+    }
+
+    func revealLastExport() {
+        guard let lastExportFolder else { return }
+        NSWorkspace.shared.activateFileViewerSelecting([lastExportFolder])
+    }
+
     func startScoring(modelContext: ModelContext, isPostProcessed: Bool = false) {
-        guard !isScoring, !isBenchmarking, !isLoadingFolder,
+        guard !isScoring, !isBenchmarking, !isLoadingFolder, !isExporting,
               let folder = selectedFolder, !discoveredPhotos.isEmpty else { return }
         isScoring = true
         completedScores = []
@@ -197,7 +279,7 @@ final class AppModel: ObservableObject {
     func cancelScoring() { scoringTask?.cancel() }
 
     func startBenchmark(sampleCount: Int, modelContext: ModelContext) {
-        guard !isScoring, !isBenchmarking, !isDeepReviewing, !isLoadingFolder else { return }
+        guard !isScoring, !isBenchmarking, !isDeepReviewing, !isLoadingFolder, !isExporting else { return }
         let candidates = BenchmarkAnalysis.evenlySpaced(visiblePhotos, count: sampleCount)
         guard !candidates.isEmpty else { return }
         let candidateModelID = benchmarkModelID
@@ -422,7 +504,7 @@ final class AppModel: ObservableObject {
     }
 
     func runDeepReview(for id: UUID, modelContext: ModelContext) {
-        guard !isDeepReviewing, !isBenchmarking,
+        guard !isDeepReviewing, !isBenchmarking, !isExporting,
               let index = completedScores.firstIndex(where: { $0.id == id }),
               let apiKey = keychain.geminiAPIKey(), !apiKey.isEmpty else {
             isShowingSettings = true

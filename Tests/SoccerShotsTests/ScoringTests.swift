@@ -51,6 +51,60 @@ struct ScoringTests {
         #expect(builder.escape("A & B <C> \"D\"") == "A &amp; B &lt;C&gt; &quot;D&quot;")
     }
 
+    @Test func xmpIncludesLightroomDevelopSettings() {
+        var photo = samplePhoto(composite: 8.2, filename: "IMG_0042.CR3")
+        photo.score.lightroomSuggestions = ["Lift shadows & protect highlights"]
+        photo.score.developSettings = DevelopSettings(
+            exposure2012: "+0.30", highlights2012: -35, shadows2012: 22,
+            whites2012: 8, blacks2012: -9, clarity2012: 6, vibrance: 12,
+            saturation: nil, luminanceSmoothing: 18, colorNoiseReduction: 25,
+            whiteBalance: "As Shot"
+        )
+
+        let xmp = XMPBuilder().sidecar(for: photo)
+        #expect(xmp.contains("xmp:Rating=\"4\""))
+        #expect(xmp.contains("crs:HasSettings=\"True\""))
+        #expect(xmp.contains("crs:Exposure2012=\"+0.30\""))
+        #expect(xmp.contains("crs:Highlights2012=\"-35\""))
+        #expect(xmp.contains("Lift shadows &amp; protect highlights"))
+    }
+
+    @Test func exportCopiesOriginalAndCreatesCollisionSafeSidecar() throws {
+        let fileManager = FileManager.default
+        let root = fileManager.temporaryDirectory
+            .appendingPathComponent("SoccerShotsExportTests-\(UUID().uuidString)", isDirectory: true)
+        let sourceFolder = root.appendingPathComponent("source", isDirectory: true)
+        let destination = root.appendingPathComponent("export", isDirectory: true)
+        try fileManager.createDirectory(at: sourceFolder, withIntermediateDirectories: true)
+        defer { try? fileManager.removeItem(at: root) }
+
+        let source = sourceFolder.appendingPathComponent("IMG_0042.CR3")
+        let originalData = Data([0x43, 0x52, 0x33])
+        try originalData.write(to: source)
+        var photo = samplePhoto(composite: 8.2, filename: source.lastPathComponent)
+        photo = ScoredPhoto(
+            id: photo.id, fileURL: source, filename: photo.filename,
+            fileSize: Int64(originalData.count), modificationDate: photo.modificationDate,
+            sessionFolder: sourceFolder, scoredAt: photo.scoredAt,
+            scoringVersion: photo.scoringVersion, scoringEngine: photo.scoringEngine,
+            score: photo.score, deepReview: photo.deepReview,
+            benchmarkResult: photo.benchmarkResult, isPostProcessed: photo.isPostProcessed,
+            isManuallyRejected: photo.isManuallyRejected, isSelectedForExport: true
+        )
+
+        let service = ExportService(fileManager: fileManager)
+        let first = try service.export(photos: [photo], to: destination)
+        let second = try service.export(photos: [photo], to: destination)
+
+        #expect(first.exported == 1)
+        #expect(first.failed == 0)
+        #expect(second.exported == 1)
+        #expect(try Data(contentsOf: destination.appendingPathComponent("IMG_0042.CR3")) == originalData)
+        #expect(fileManager.fileExists(atPath: destination.appendingPathComponent("IMG_0042.xmp").path))
+        #expect(fileManager.fileExists(atPath: destination.appendingPathComponent("IMG_0042-2.CR3").path))
+        #expect(fileManager.fileExists(atPath: destination.appendingPathComponent("IMG_0042-2.xmp").path))
+    }
+
     @Test func galleryFiltersRespectManualRejectAndScoreBands() {
         let photo = samplePhoto(composite: 7.4)
         #expect(GalleryFilter.nearMiss.includes(photo))

@@ -16,7 +16,7 @@ struct RootView: View {
                     Button("Choose Photo Folder…", systemImage: "folder") {
                         model.chooseFolder(modelContext: modelContext)
                     }
-                    .disabled(model.isLoadingFolder || model.isBenchmarking)
+                    .disabled(model.isLoadingFolder || model.isBenchmarking || model.isExporting)
                     if let folder = model.selectedFolder {
                         LabeledContent("Folder", value: folder.lastPathComponent)
                         LabeledContent("Photos", value: "\(model.discoveredPhotos.count)")
@@ -25,7 +25,7 @@ struct RootView: View {
                         }
                         .disabled(model.photoBursts.isEmpty)
                         Button("Close Session", systemImage: "xmark.circle") { model.closeSession() }
-                            .disabled(model.isBenchmarking)
+                            .disabled(model.isBenchmarking || model.isExporting)
                     }
                 }
                 if model.isLoadingFolder {
@@ -55,6 +55,44 @@ struct RootView: View {
                         if model.isBenchmarking {
                             Button("Cancel A/B after current photo", role: .cancel) { model.cancelBenchmark() }
                         }
+                    }
+                }
+                if !model.completedScores.isEmpty {
+                    Section("Export") {
+                        Button {
+                            model.exportSelectedPhotos()
+                        } label: {
+                            Label(
+                                "Export \(model.selectedForExport.count) Selected + XMP…",
+                                systemImage: "square.and.arrow.up"
+                            )
+                        }
+                        .disabled(
+                            model.selectedForExport.isEmpty || model.isScoring || model.isBenchmarking ||
+                            model.isDeepReviewing || model.isLoadingFolder || model.isExporting
+                        )
+                        .help("Copy selected originals and create matching Lightroom XMP sidecars")
+
+                        if model.isExporting {
+                            VStack(alignment: .leading, spacing: 6) {
+                                ProgressView()
+                                Text(model.exportProgress.message)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(2)
+                            }
+                            Button("Cancel Export", role: .cancel) { model.cancelExport() }
+                        }
+
+                        if model.lastExportFolder != nil, !model.isExporting {
+                            Button("Show Last Export in Finder", systemImage: "folder.badge.gearshape") {
+                                model.revealLastExport()
+                            }
+                        }
+
+                        Text("Copies originals and writes Lightroom ratings and suggested develop settings to same-name .xmp sidecars.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
                 }
                 Section("Configuration") {
@@ -96,11 +134,25 @@ struct RootView: View {
         )) { Button("OK") { model.presentedError = nil } } message: {
             Text(model.presentedError ?? "")
         }
+        .alert("Export Complete", isPresented: Binding(
+            get: { model.presentedNotice != nil },
+            set: { if !$0 { model.presentedNotice = nil } }
+        )) {
+            if model.lastExportFolder != nil {
+                Button("Show in Finder") {
+                    model.revealLastExport()
+                    model.presentedNotice = nil
+                }
+            }
+            Button("OK") { model.presentedNotice = nil }
+        } message: {
+            Text(model.presentedNotice ?? "")
+        }
     }
 
     private var statusBar: some View {
         HStack {
-            if model.isScoring || model.isBenchmarking || model.isDeepReviewing || model.isLoadingFolder {
+            if model.isScoring || model.isBenchmarking || model.isDeepReviewing || model.isLoadingFolder || model.isExporting {
                 ProgressView().controlSize(.small)
             }
             Text(statusMessage)
@@ -113,6 +165,7 @@ struct RootView: View {
     }
 
     private var statusMessage: String {
+        if model.isExporting { return model.exportProgress.message }
         if model.isBenchmarking { return model.benchmarkProgress.message }
         if model.isDeepReviewing { return "Gemini is performing an explicit Deep Review…" }
         return model.progress.message

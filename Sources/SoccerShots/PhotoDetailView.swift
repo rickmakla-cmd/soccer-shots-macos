@@ -10,6 +10,23 @@ struct PhotoDetailView: View {
 
     private var current: ScoredPhoto { model.selectedPhoto ?? photo }
 
+    private var developRows: [(String, String)] {
+        let settings = current.score.developSettings
+        var rows: [(String, String)] = []
+        if let value = settings.exposure2012 { rows.append(("Exposure", value)) }
+        if let value = settings.highlights2012 { rows.append(("Highlights", signed(value))) }
+        if let value = settings.shadows2012 { rows.append(("Shadows", signed(value))) }
+        if let value = settings.whites2012 { rows.append(("Whites", signed(value))) }
+        if let value = settings.blacks2012 { rows.append(("Blacks", signed(value))) }
+        if let value = settings.clarity2012 { rows.append(("Clarity", signed(value))) }
+        if let value = settings.vibrance { rows.append(("Vibrance", signed(value))) }
+        if let value = settings.saturation { rows.append(("Saturation", signed(value))) }
+        if let value = settings.luminanceSmoothing { rows.append(("Noise reduction", String(value))) }
+        if let value = settings.colorNoiseReduction { rows.append(("Color noise reduction", String(value))) }
+        if let value = settings.whiteBalance { rows.append(("White balance", value)) }
+        return rows
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             HStack {
@@ -78,7 +95,23 @@ struct PhotoDetailView: View {
                 }
                 if current.score.lightroomSuggestions.isEmpty {
                     Text("No adjustments suggested.").foregroundStyle(.secondary)
-                } else {
+                }
+                if !developRows.isEmpty {
+                    Divider().padding(.vertical, 2)
+                    Text("XMP develop settings").font(.headline)
+                    Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 6) {
+                        ForEach(Array(developRows.enumerated()), id: \.offset) { item in
+                            GridRow {
+                                Text(item.element.0).foregroundStyle(.secondary)
+                                Text(item.element.1).monospacedDigit()
+                            }
+                        }
+                    }
+                    Text("These values and the star rating are written automatically when you use Export Selected + XMP.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                if !current.score.lightroomSuggestions.isEmpty {
                     Button("Copy all") {
                         NSPasteboard.general.clearContents()
                         NSPasteboard.general.setString(current.score.lightroomSuggestions.joined(separator: "\n"), forType: .string)
@@ -86,6 +119,10 @@ struct PhotoDetailView: View {
                 }
             }.frame(maxWidth: .infinity, alignment: .leading)
         }
+    }
+
+    private func signed(_ value: Int) -> String {
+        value > 0 ? "+\(value)" : String(value)
     }
 
     private var metadata: some View {

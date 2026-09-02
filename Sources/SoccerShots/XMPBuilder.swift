@@ -55,6 +55,7 @@ struct XMPBuilder: Sendable {
         if let value = settings.whiteBalance { values.append(("WhiteBalance", value)) }
         guard !values.isEmpty else { return "" }
         return "\n              xmlns:crs=\"http://ns.adobe.com/camera-raw-settings/1.0/\"\n              crs:ProcessVersion=\"11.0\"" +
+            "\n              crs:HasSettings=\"True\"\n              crs:AlreadyApplied=\"False\"" +
             values.map { "\n              crs:\($0.0)=\"\(escape($0.1))\"" }.joined()
     }
 }
