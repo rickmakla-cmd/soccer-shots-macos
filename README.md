@@ -44,7 +44,7 @@ xcodegen generate
 
 Then open `SoccerShots.xcodeproj`, choose the `SoccerShots` scheme, and run. The first score downloads `mlx-community/gemma-3-4b-it-4bit` into the app's Application Support model cache.
 
-Choose **A/B Benchmark…** after a folder has stored primary scores. The benchmark uses those Gemma 3 results as the baseline, unloads Gemma 3, and runs the selected sample through `mlx-community/gemma-4-e4b-it-8bit` sequentially. The first benchmark downloads about 8.9 GB. Results are stored separately and never replace the primary score, selection, or rejection state. The 8-bit checkpoint is the default because the stock Gemma 4 4-bit MLX checkpoint still has a reported quantized vision-projection loader defect.
+Choose **A/B Benchmark…** after a folder has stored primary scores. The benchmark uses those Gemma 3 results as the baseline, unloads Gemma 3, and runs the selected sample through `mlx-community/gemma-4-e4b-it-8bit` sequentially. The first benchmark downloads about 8.9 GB. Results are stored separately and never replace the primary score, selection, or rejection state. The 8-bit checkpoint is the default because the stock Gemma 4 4-bit MLX checkpoint still has a reported quantized vision-projection loader defect. MLX Swift is pinned to upstream commit `09deb8c`, which fixes the E-series VLM loader incorrectly requiring K/V weights on shared layers.
 
 Run the domain tests with:
 

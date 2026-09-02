@@ -444,7 +444,7 @@
 				CODE_SIGN_ENTITLEMENTS = SoccerShots.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = SoccerShots;
@@ -453,7 +453,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.2;
+				MARKETING_VERSION = 0.1.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.rickmakla.SoccerShots;
 				PRODUCT_NAME = SoccerShots;
 				SDKROOT = macosx;
@@ -467,7 +467,7 @@
 				CODE_SIGN_ENTITLEMENTS = SoccerShots.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = SoccerShots;
@@ -476,7 +476,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.2;
+				MARKETING_VERSION = 0.1.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.rickmakla.SoccerShots;
 				PRODUCT_NAME = SoccerShots;
 				SDKROOT = macosx;
@@ -528,8 +528,8 @@
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/ml-explore/mlx-swift-lm.git";
 			requirement = {
-				kind = exactVersion;
-				version = 3.31.4;
+				kind = revision;
+				revision = 09deb8c4e9056fcd76b60718bb50325d1730572b;
 			};
 		};
 		ED249E04B1549F28045675B7 /* XCRemoteSwiftPackageReference "swift-transformers" */ = {
