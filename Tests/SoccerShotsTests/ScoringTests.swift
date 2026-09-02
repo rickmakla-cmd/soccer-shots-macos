@@ -151,6 +151,21 @@ struct ScoringTests {
         #expect(store.load() == nil)
     }
 
+    @Test func geminiBatchStoreRoundTripsDurableJobs() throws {
+        let suite = "SoccerShotsBatchTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = GeminiBatchStore(defaults: defaults, key: "jobs")
+        let job = GeminiBatchJob(
+            name: "batches/123", modelID: "gemini-2.5-pro",
+            photoPaths: ["/game/IMG_1.CR3", "/game/IMG_2.CR3"],
+            submittedAt: Date(timeIntervalSince1970: 100)
+        )
+
+        try store.save([job])
+        #expect(store.load() == [job])
+    }
+
     @Test func discoveryChecksCancellationBeforeTouchingFolder() {
         struct Stop: Error {}
         #expect(throws: Stop.self) {

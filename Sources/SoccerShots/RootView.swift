@@ -8,6 +8,7 @@ struct RootView: View {
     @EnvironmentObject private var model: AppModel
     @State private var isShowingBurstComparison = false
     @State private var isShowingBenchmark = false
+    @State private var isConfirmingGeminiBatch = false
 
     var body: some View {
         NavigationSplitView {
@@ -95,6 +96,42 @@ struct RootView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                if !model.completedScores.isEmpty || !model.activeGeminiBatchJobs.isEmpty {
+                    Section("Gemini Batch") {
+                        if model.activeGeminiBatchJobs.isEmpty {
+                            Button {
+                                if model.isGeminiConfigured {
+                                    isConfirmingGeminiBatch = true
+                                } else {
+                                    model.isShowingSettings = true
+                                }
+                            } label: {
+                                Label(
+                                    "Score \(model.selectedForExport.count) Selected…",
+                                    systemImage: "cloud.arrow.up"
+                                )
+                            }
+                            .disabled(
+                                model.selectedForExport.isEmpty || model.isScoring || model.isBenchmarking ||
+                                model.isDeepReviewing || model.isExporting || model.isGeminiBatchRunning
+                            )
+                        } else if model.isGeminiBatchRunning {
+                            ProgressView()
+                            Text(model.geminiBatchProgress.message)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Button("Pause Monitoring", role: .cancel) { model.pauseGeminiBatchMonitoring() }
+                        } else {
+                            Text("\(model.activeGeminiBatchJobs.count) submitted job\(model.activeGeminiBatchJobs.count == 1 ? "" : "s")")
+                            Button("Resume Result Check", systemImage: "arrow.clockwise") {
+                                model.resumeGeminiBatches(modelContext: modelContext)
+                            }
+                        }
+                        Text("Uses Google’s asynchronous Batch API at the discounted batch rate. Results can take up to 24 hours and never replace Gemma scores.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
                 Section("Configuration") {
                     Button("Settings…", systemImage: "gearshape") { model.isShowingSettings = true }
                     LabeledContent("Primary", value: "Gemma local")
@@ -120,7 +157,10 @@ struct RootView: View {
             }
             .safeAreaInset(edge: .bottom) { statusBar }
         }
-        .task { model.restoreSessionIfAvailable(modelContext: modelContext) }
+        .task {
+            model.restoreSessionIfAvailable(modelContext: modelContext)
+            model.resumeGeminiBatches(modelContext: modelContext)
+        }
         .sheet(isPresented: $model.isShowingSettings) { SettingsView() }
         .sheet(isPresented: $isShowingBurstComparison) {
             BurstComparisonView(isPresented: $isShowingBurstComparison)
@@ -134,7 +174,7 @@ struct RootView: View {
         )) { Button("OK") { model.presentedError = nil } } message: {
             Text(model.presentedError ?? "")
         }
-        .alert("Export Complete", isPresented: Binding(
+        .alert("SoccerShots", isPresented: Binding(
             get: { model.presentedNotice != nil },
             set: { if !$0 { model.presentedNotice = nil } }
         )) {
@@ -148,11 +188,23 @@ struct RootView: View {
         } message: {
             Text(model.presentedNotice ?? "")
         }
+        .confirmationDialog(
+            "Submit \(model.selectedForExport.count) photos for Gemini Batch Scoring?",
+            isPresented: $isConfirmingGeminiBatch,
+            titleVisibility: .visible
+        ) {
+            Button("Submit Discounted Batch") {
+                model.startGeminiBatch(modelContext: modelContext)
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This sends prepared copies and the full scoring rubric to Gemini. Google says Batch API requests cost 50% of standard requests and can take up to 24 hours. A paid Gemini API project is required.")
+        }
     }
 
     private var statusBar: some View {
         HStack {
-            if model.isScoring || model.isBenchmarking || model.isDeepReviewing || model.isLoadingFolder || model.isExporting {
+            if model.isScoring || model.isBenchmarking || model.isDeepReviewing || model.isGeminiBatchRunning || model.isLoadingFolder || model.isExporting {
                 ProgressView().controlSize(.small)
             }
             Text(statusMessage)
@@ -165,9 +217,11 @@ struct RootView: View {
     }
 
     private var statusMessage: String {
+        if model.isScoring { return model.progress.message }
         if model.isExporting { return model.exportProgress.message }
         if model.isBenchmarking { return model.benchmarkProgress.message }
         if model.isDeepReviewing { return "Gemini is performing an explicit Deep Review…" }
+        if model.isGeminiBatchRunning { return model.geminiBatchProgress.message }
         return model.progress.message
     }
 }
@@ -433,6 +487,17 @@ private struct PhotoCard: View {
                 }
                 .font(.caption2)
                 .foregroundStyle(.purple)
+            }
+            if let result = photo.geminiBatchResult {
+                HStack {
+                    Text("Gemini")
+                    Spacer()
+                    Text(result.score.composite, format: .number.precision(.fractionLength(1))).monospacedDigit()
+                    Text(String(format: "%+.1f", result.score.composite - photo.score.composite))
+                        .monospacedDigit().foregroundStyle(.secondary)
+                }
+                .font(.caption2)
+                .foregroundStyle(.orange)
             }
         }
         .padding(10)

@@ -11,6 +11,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var isScoring = false
     @Published private(set) var isBenchmarking = false
     @Published private(set) var isDeepReviewing = false
+    @Published private(set) var isGeminiBatchRunning = false
     @Published private(set) var isExporting = false
     @Published private(set) var isRestoringSession = false
     @Published private(set) var isLoadingFolder = false
@@ -24,6 +25,8 @@ final class AppModel: ObservableObject {
     @Published private(set) var benchmarkModelID: String
     @Published private(set) var geminiModelID: String
     @Published private(set) var benchmarkProgress: BenchmarkProgress = .idle
+    @Published private(set) var geminiBatchProgress: GeminiBatchProgress = .idle
+    @Published private(set) var activeGeminiBatchJobs: [GeminiBatchJob] = []
     @Published private(set) var exportProgress: ExportProgress = .idle
     @Published private(set) var lastExportFolder: URL?
     @Published var presentedError: String?
@@ -32,10 +35,12 @@ final class AppModel: ObservableObject {
     private var scorer: LocalGemmaService
     private let keychain = KeychainStore()
     private let sessionStore = SessionStore()
+    private let geminiBatchStore = GeminiBatchStore()
     private var scoringTask: Task<Void, Never>?
     private var benchmarkTask: Task<Void, Never>?
     private var folderLoadingTask: Task<Void, Never>?
     private var exportTask: Task<Void, Never>?
+    private var geminiBatchTask: Task<Void, Never>?
     private var folderLoadID: UUID?
     private var activeFolderBookmark: Data?
     private var securityScopedFolderURL: URL?
@@ -50,6 +55,7 @@ final class AppModel: ObservableObject {
         geminiModelID = defaults.string(forKey: "SoccerShots.geminiModelID") ?? "gemini-2.5-pro"
         scorer = LocalGemmaService(modelID: localID)
         isGeminiConfigured = keychain.geminiAPIKey()?.isEmpty == false
+        activeGeminiBatchJobs = geminiBatchStore.load()
         refreshModelDiskUsage()
     }
 
@@ -129,6 +135,7 @@ final class AppModel: ObservableObject {
         scoringTask?.cancel()
         benchmarkTask?.cancel()
         exportTask?.cancel()
+        geminiBatchTask?.cancel()
         cancelFolderLoading()
         securityScopedFolderURL?.stopAccessingSecurityScopedResource()
         securityScopedFolderURL = nil
@@ -141,6 +148,7 @@ final class AppModel: ObservableObject {
         benchmarkProgress = .idle
         isBenchmarking = false
         isExporting = false
+        isGeminiBatchRunning = false
         exportProgress = .idle
         lastExportFolder = nil
         sessionStore.clear()
@@ -504,7 +512,7 @@ final class AppModel: ObservableObject {
     }
 
     func runDeepReview(for id: UUID, modelContext: ModelContext) {
-        guard !isDeepReviewing, !isBenchmarking, !isExporting,
+        guard !isDeepReviewing, !isGeminiBatchRunning, !isBenchmarking, !isExporting,
               let index = completedScores.firstIndex(where: { $0.id == id }),
               let apiKey = keychain.geminiAPIKey(), !apiKey.isEmpty else {
             isShowingSettings = true
@@ -529,6 +537,139 @@ final class AppModel: ObservableObject {
             } catch { presentedError = error.localizedDescription }
             isDeepReviewing = false
         }
+    }
+
+    func startGeminiBatch(modelContext: ModelContext) {
+        guard !isGeminiBatchRunning, !isBenchmarking, !isExporting, !isScoring else { return }
+        let photos = selectedForExport
+        guard !photos.isEmpty else {
+            presentedError = "Select at least one photo for Gemini Batch Review."
+            return
+        }
+        guard let apiKey = keychain.geminiAPIKey(), !apiKey.isEmpty else {
+            isShowingSettings = true
+            return
+        }
+
+        isGeminiBatchRunning = true
+        geminiBatchTask = Task { [weak self] in
+            guard let self else { return }
+            do {
+                let preparation = Task.detached(priority: .userInitiated) {
+                    try GeminiBatchClient().prepare(photos: photos) { index, total, filename in
+                        Task { @MainActor [weak self] in
+                            self?.geminiBatchProgress = .preparing(index: index, total: total, filename: filename)
+                        }
+                    }
+                }
+                let groups = try await withTaskCancellationHandler {
+                    try await preparation.value
+                } onCancel: {
+                    preparation.cancel()
+                }
+
+                for (offset, group) in groups.enumerated() {
+                    try Task.checkCancellation()
+                    geminiBatchProgress = .submitting(index: offset + 1, total: groups.count)
+                    let job = try await GeminiBatchClient().submit(group, modelID: geminiModelID, apiKey: apiKey)
+                    activeGeminiBatchJobs.append(job)
+                    try geminiBatchStore.save(activeGeminiBatchJobs)
+                }
+                try await pollGeminiBatches(apiKey: apiKey, modelContext: modelContext)
+            } catch is CancellationError {
+                geminiBatchProgress = activeGeminiBatchJobs.isEmpty
+                    ? .idle
+                    : .waiting(jobs: activeGeminiBatchJobs.count, photos: activeGeminiBatchJobs.reduce(0) { $0 + $1.photoPaths.count })
+            } catch {
+                presentedError = error.localizedDescription
+            }
+            isGeminiBatchRunning = false
+            geminiBatchTask = nil
+        }
+    }
+
+    func resumeGeminiBatches(modelContext: ModelContext) {
+        guard !isGeminiBatchRunning, !activeGeminiBatchJobs.isEmpty else { return }
+        guard let apiKey = keychain.geminiAPIKey(), !apiKey.isEmpty else {
+            isShowingSettings = true
+            return
+        }
+        isGeminiBatchRunning = true
+        geminiBatchTask = Task { [weak self] in
+            guard let self else { return }
+            do {
+                try await pollGeminiBatches(apiKey: apiKey, modelContext: modelContext)
+            } catch is CancellationError {
+                geminiBatchProgress = .waiting(
+                    jobs: activeGeminiBatchJobs.count,
+                    photos: activeGeminiBatchJobs.reduce(0) { $0 + $1.photoPaths.count }
+                )
+            } catch {
+                presentedError = error.localizedDescription
+            }
+            isGeminiBatchRunning = false
+            geminiBatchTask = nil
+        }
+    }
+
+    func pauseGeminiBatchMonitoring() {
+        geminiBatchTask?.cancel()
+    }
+
+    private func pollGeminiBatches(apiKey: String, modelContext: ModelContext) async throws {
+        var completed = 0
+        var failed = 0
+        while !activeGeminiBatchJobs.isEmpty {
+            try Task.checkCancellation()
+            geminiBatchProgress = .waiting(
+                jobs: activeGeminiBatchJobs.count,
+                photos: activeGeminiBatchJobs.reduce(0) { $0 + $1.photoPaths.count }
+            )
+            var finishedNames: Set<String> = []
+
+            for job in activeGeminiBatchJobs {
+                try Task.checkCancellation()
+                let result = try await GeminiBatchClient().status(of: job, apiKey: apiKey)
+                switch result.state {
+                case .pending, .running:
+                    continue
+                case .succeeded:
+                    for (path, score) in result.scoresByPath {
+                        let scoredResult = ModelBenchmarkResult(
+                            modelID: job.modelID,
+                            scoredAt: Date(),
+                            durationSeconds: 0,
+                            score: score
+                        )
+                        if let index = completedScores.firstIndex(where: { $0.fileURL.path == path }) {
+                            completedScores[index].geminiBatchResult = scoredResult
+                        }
+                        if let record = try record(for: path, modelContext: modelContext) {
+                            try record.setGeminiBatchResult(scoredResult)
+                        }
+                        completed += 1
+                        geminiBatchProgress = .importing(completed: completed, total: job.photoPaths.count)
+                    }
+                    failed += result.failedPaths.count
+                    try modelContext.save()
+                    finishedNames.insert(job.name)
+                case let .failed(message):
+                    failed += job.photoPaths.count
+                    presentedError = message
+                    finishedNames.insert(job.name)
+                }
+            }
+
+            if !finishedNames.isEmpty {
+                activeGeminiBatchJobs.removeAll { finishedNames.contains($0.name) }
+                try geminiBatchStore.save(activeGeminiBatchJobs)
+            }
+            if !activeGeminiBatchJobs.isEmpty {
+                try await Task.sleep(for: .seconds(30))
+            }
+        }
+        geminiBatchProgress = .finished(completed: completed, failed: failed)
+        presentedNotice = "Gemini Batch Scoring finished: \(completed) photo\(completed == 1 ? "" : "s") scored, \(failed) failed. Gemma primary scores were not changed."
     }
 
     private func updatePhoto(
@@ -669,6 +810,7 @@ final class AppModel: ObservableObject {
             sessionFolder: URL(fileURLWithPath: record.sessionFolder), scoredAt: record.scoredAt,
             scoringVersion: record.scoringVersion, scoringEngine: record.scoringEngine,
             score: score, deepReview: record.deepReview, benchmarkResult: record.benchmarkResult,
+            geminiBatchResult: record.geminiBatchResult,
             isPostProcessed: record.isPostProcessed,
             isManuallyRejected: record.isManuallyRejected, isSelectedForExport: record.isSelectedForExport
         )

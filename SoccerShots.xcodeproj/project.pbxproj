@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		090026613F7E6F10D7FA113D /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8C01245233CF55D2DC6CED7 /* KeychainStore.swift */; };
 		092E6380AA78DEFD5F0B032F /* PhotoDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11C599697F995C08899DE94 /* PhotoDetailView.swift */; };
+		2184F4CC02C5000E188A25C6 /* GeminiBatchClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6577327E68237AA90405DB4 /* GeminiBatchClient.swift */; };
 		2C89CE9DA8D6A187C4C806CB /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19764D2DA141FF340D51BEAE /* AppModel.swift */; };
 		2D3ABDD1EA5727FE118AD98B /* ExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55D743CD01894CCBB5331C92 /* ExportService.swift */; };
 		2F683D9286225A6A5644A005 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA53BEF00C0AF36D1091261C /* Models.swift */; };
@@ -62,6 +63,7 @@
 		A1BC14023A35FAFE6E6BB348 /* SoccerShots.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SoccerShots.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A350693BADC0115A5AEC194D /* PhotoDiscovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoDiscovery.swift; sourceTree = "<group>"; };
 		A60AC3F0364B9EF5F4F28E03 /* SoccerShotsTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SoccerShotsTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A6577327E68237AA90405DB4 /* GeminiBatchClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeminiBatchClient.swift; sourceTree = "<group>"; };
 		A8C01245233CF55D2DC6CED7 /* KeychainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStore.swift; sourceTree = "<group>"; };
 		C9EC7286D5D0DBA690CCD170 /* BenchmarkView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BenchmarkView.swift; sourceTree = "<group>"; };
 		E88ABA41F9C872F018FC59E4 /* BurstComparisonView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BurstComparisonView.swift; sourceTree = "<group>"; };
@@ -134,6 +136,7 @@
 				C9EC7286D5D0DBA690CCD170 /* BenchmarkView.swift */,
 				E88ABA41F9C872F018FC59E4 /* BurstComparisonView.swift */,
 				55D743CD01894CCBB5331C92 /* ExportService.swift */,
+				A6577327E68237AA90405DB4 /* GeminiBatchClient.swift */,
 				132A4D58C21F770508043E86 /* GeminiDeepReviewClient.swift */,
 				2B817ED27816AA48924562CA /* ImagePreparer.swift */,
 				A8C01245233CF55D2DC6CED7 /* KeychainStore.swift */,
@@ -257,6 +260,7 @@
 				706AD7C7D31C05946381ADDB /* BenchmarkView.swift in Sources */,
 				61E05844753652D5EC29E40A /* BurstComparisonView.swift in Sources */,
 				2D3ABDD1EA5727FE118AD98B /* ExportService.swift in Sources */,
+				2184F4CC02C5000E188A25C6 /* GeminiBatchClient.swift in Sources */,
 				5089294080E56772052F59C6 /* GeminiDeepReviewClient.swift in Sources */,
 				6009530AF989B3BE63B43047 /* ImagePreparer.swift in Sources */,
 				090026613F7E6F10D7FA113D /* KeychainStore.swift in Sources */,
@@ -448,7 +452,7 @@
 				CODE_SIGN_ENTITLEMENTS = SoccerShots.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = SoccerShots;
@@ -457,7 +461,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.4;
+				MARKETING_VERSION = 0.1.5;
 				PRODUCT_BUNDLE_IDENTIFIER = com.rickmakla.SoccerShots;
 				PRODUCT_NAME = SoccerShots;
 				SDKROOT = macosx;
@@ -471,7 +475,7 @@
 				CODE_SIGN_ENTITLEMENTS = SoccerShots.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = SoccerShots;
@@ -480,7 +484,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.4;
+				MARKETING_VERSION = 0.1.5;
 				PRODUCT_BUNDLE_IDENTIFIER = com.rickmakla.SoccerShots;
 				PRODUCT_NAME = SoccerShots;
 				SDKROOT = macosx;

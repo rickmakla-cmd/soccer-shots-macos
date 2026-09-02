@@ -11,14 +11,7 @@ struct GeminiDeepReviewClient: Sendable {
     func review(photoURL: URL, localScore: PhotoScore, apiKey: String) async throws -> DeepReview {
         let prepared = try preparer.prepare(photoURL)
         let scoreJSON = String(data: try JSONEncoder().encode(localScore), encoding: .utf8) ?? "{}"
-        let prompt = """
-        Give this soccer photo an optional deep second review. The local Gemma score below remains authoritative and must never be overwritten. Confirm or challenge it, identify anything the local pass missed, and give concrete Lightroom/crop guidance.
-
-        Local score: \(scoreJSON)
-
-        Return only JSON with this exact shape:
-        {"assessment":"one or two sentence overall take","limiting_factors":["short phrase"],"fixable":true,"suggested_fix":"concrete recommendation or null","crop_suggestion":"specific crop or null"}
-        """
+        let prompt = Self.prompt(localScoreJSON: scoreJSON)
         let body: [String: Any] = [
             "contents": [["role": "user", "parts": [
                 ["text": prompt],
@@ -42,6 +35,17 @@ struct GeminiDeepReviewClient: Sendable {
             throw SoccerShotsError.message("Gemini returned no Deep Review text.")
         }
         return try JSONDecoder().decode(DeepReview.self, from: reviewData)
+    }
+
+    static func prompt(localScoreJSON: String) -> String {
+        """
+        Give this soccer photo an optional deep second review. The local Gemma score below remains authoritative and must never be overwritten. Confirm or challenge it, identify anything the local pass missed, and give concrete Lightroom/crop guidance.
+
+        Local score: \(localScoreJSON)
+
+        Return only JSON with this exact shape:
+        {"assessment":"one or two sentence overall take","limiting_factors":["short phrase"],"fixable":true,"suggested_fix":"concrete recommendation or null","crop_suggestion":"specific crop or null"}
+        """
     }
 
     private static func errorMessage(from data: Data) -> String {

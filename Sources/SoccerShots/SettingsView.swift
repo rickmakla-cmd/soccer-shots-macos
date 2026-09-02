@@ -28,7 +28,7 @@ struct SettingsView: View {
                     }
                 }
 
-                Section("Gemini — optional Deep Review") {
+                Section("Gemini — optional review and batch scoring") {
                     SecureField(model.isGeminiConfigured ? "API key saved in Keychain" : "Gemini API key", text: $apiKey)
                     TextField("Gemini model ID", text: $geminiModelID)
                     HStack {
@@ -40,7 +40,7 @@ struct SettingsView: View {
                             Button("Remove API key", role: .destructive) { model.removeGeminiAPIKey() }
                         }
                     }
-                    Text("Gemini is never used automatically. Only the Deep Review button on a specific photo sends that prepared image and its local score.")
+                    Text("Gemini is never used automatically. Deep Review sends one chosen photo immediately. Batch Scoring sends only selected photos through Google’s asynchronous discounted Batch API and stores its score separately from Gemma.")
                         .font(.callout).foregroundStyle(.secondary)
                 }
 

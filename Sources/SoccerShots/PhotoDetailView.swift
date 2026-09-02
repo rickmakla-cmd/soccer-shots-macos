@@ -50,6 +50,7 @@ struct PhotoDetailView: View {
                         suggestions
                         metadata
                         benchmarkComparison
+                        geminiBatchComparison
                         deepReview
                     }.padding(20)
                 }
@@ -157,7 +158,7 @@ struct PhotoDetailView: View {
                     if model.isDeepReviewing { ProgressView() }
                     else { Label(current.deepReview == nil ? "Deep Review This Photo" : "Run Deep Review Again", systemImage: "cloud") }
                 }
-                .disabled(model.isDeepReviewing || model.isBenchmarking)
+                .disabled(model.isDeepReviewing || model.isBenchmarking || model.isGeminiBatchRunning)
                 if !model.isGeminiConfigured {
                     Button("Configure Gemini in Settings") { model.isShowingSettings = true }
                         .buttonStyle(.link)
@@ -190,6 +191,42 @@ struct PhotoDetailView: View {
                     }
                     Text(result.modelID).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
                     Text("The candidate result is observational only and has not changed this photo's keeper or rejection state.")
+                        .font(.callout).foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var geminiBatchComparison: some View {
+        if let result = current.geminiBatchResult {
+            GroupBox("Gemini batch score · comparison only") {
+                VStack(alignment: .leading, spacing: 10) {
+                    Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 8) {
+                        GridRow {
+                            Text("Gemma primary").foregroundStyle(.secondary)
+                            Text(current.score.composite, format: .number.precision(.fractionLength(1))).monospacedDigit()
+                            Text(current.score.keepRecommendation ? "Keep" : "Review")
+                        }
+                        GridRow {
+                            Text("Gemini batch").foregroundStyle(.secondary)
+                            Text(result.score.composite, format: .number.precision(.fractionLength(1))).monospacedDigit()
+                            Text(result.score.keepRecommendation ? "Keep" : "Review")
+                        }
+                        GridRow {
+                            Text("Difference").foregroundStyle(.secondary)
+                            Text(String(format: "%+.1f", result.score.composite - current.score.composite)).monospacedDigit()
+                            Text(result.modelID)
+                        }
+                    }
+                    if !result.score.lightroomSuggestions.isEmpty {
+                        Text("Gemini Lightroom suggestions").font(.headline)
+                        ForEach(result.score.lightroomSuggestions, id: \.self) { suggestion in
+                            Label(suggestion, systemImage: "slider.horizontal.3")
+                        }
+                    }
+                    Text("This result is stored separately and has not changed the Gemma keeper, rejection, or export decision.")
                         .font(.callout).foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)

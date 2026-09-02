@@ -19,6 +19,7 @@ This repository is a Swift/SwiftUI rewrite of the validated Electron prototype a
 - Full score-detail view with Lightroom guidance, exact generated develop values, metadata, selection/reject actions, and previous/next navigation.
 - Settings UI for the local model and Keychain-backed optional Gemini configuration.
 - Explicit per-photo Gemini Deep Review with structured JSON stored beside the unchanged local score.
+- Selected-photo Gemini Batch Scoring with discounted asynchronous jobs, automatic payload splitting, durable job restoration, and side-by-side scores that never replace the Gemma primary result.
 - Automatic restoration of the active folder, cached scores, gallery filter/sort, focused photo, and review decisions.
 - Security-scoped folder bookmarks with a path fallback and a clean close-session action.
 - Responsive background RAW discovery during folder selection and session restoration, with cancellation support.
@@ -47,6 +48,12 @@ Then open `SoccerShots.xcodeproj`, choose the `SoccerShots` scheme, and run. The
 
 Choose **A/B Benchmark…** after a folder has stored primary scores. The benchmark uses those Gemma 3 results as the baseline, unloads Gemma 3, and runs the selected sample through `mlx-community/gemma-4-e4b-it-8bit` sequentially. The first benchmark downloads about 8.9 GB. Results are stored separately and never replace the primary score, selection, or rejection state. The 8-bit checkpoint is the default because the stock Gemma 4 4-bit MLX checkpoint still has a reported quantized vision-projection loader defect. MLX Swift is pinned to upstream commit `09deb8c`, which fixes the E-series VLM loader incorrectly requiring K/V weights on shared layers.
 
+## Gemini batch scoring
+
+Select photos in the gallery, then choose **Score Selected…** under **Gemini Batch**. After confirmation, SoccerShots prepares smaller JPEG copies, splits requests below Google’s 20 MB inline-batch limit, and submits true asynchronous Batch API jobs. Google currently prices Batch API processing at 50% of equivalent standard requests and targets completion within 24 hours. Batch requires a paid Gemini API project.
+
+Submitted job identifiers and their source-photo mappings are saved locally. SoccerShots checks results every 30 seconds while monitoring is active and resumes pending jobs after the app reopens. Gemini scores and Lightroom suggestions are stored separately for comparison; they never change Gemma’s keeper, rejection, or export decisions.
+
 ## Lightroom export
 
 Select photos in the gallery, then choose **Export Selected + XMP…** in the sidebar. SoccerShots copies each original to the folder you choose and creates a sidecar with the same basename—for example, `IMG_0042.CR3` and `IMG_0042.xmp`. Import the exported originals into Lightroom Classic with their sidecars kept beside them. If a RAW was already imported before its sidecar existed, use **Metadata > Read Metadata from File** in Lightroom Classic.
@@ -61,4 +68,4 @@ swift test
 
 ## Privacy boundary
 
-Folder discovery, image preparation, scoring, caching, and XMP generation are local. The Gemini client is not called by the normal scoring pipeline; Deep Review will require explicit user action and a Keychain-stored key when its UI is added.
+Folder discovery, primary scoring, caching, and XMP generation are local. Gemini is not called by the normal scoring pipeline. A cloud request happens only after an explicit single-photo Deep Review or confirmed selected-photo Batch Scoring action, using the API key stored in Keychain.

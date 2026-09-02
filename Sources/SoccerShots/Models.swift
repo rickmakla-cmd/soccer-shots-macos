@@ -139,6 +139,7 @@ struct ScoredPhoto: Codable, Identifiable, Equatable, Sendable {
     var score: PhotoScore
     var deepReview: DeepReview?
     var benchmarkResult: ModelBenchmarkResult? = nil
+    var geminiBatchResult: ModelBenchmarkResult? = nil
     var isPostProcessed: Bool
     var isManuallyRejected: Bool
     var isSelectedForExport: Bool
