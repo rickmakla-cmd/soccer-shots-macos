@@ -24,7 +24,7 @@ enum ExportProgress: Equatable, Sendable {
     }
 }
 
-struct ExportService: Sendable {
+struct ExportService {
     private let fileManager: FileManager
     private let xmpBuilder: XMPBuilder
 
