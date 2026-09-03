@@ -166,6 +166,41 @@ struct ScoringTests {
         #expect(store.load() == [job])
     }
 
+    @Test func geminiBatchReadsLongRunningOperationStatus() throws {
+        let job = GeminiBatchJob(
+            name: "batches/123", modelID: "gemini-3.7-flash",
+            photoPaths: ["/game/IMG_1.CR3"], submittedAt: .now
+        )
+        let scoreJSON = #"{"auto_reject":false,"sharpness_score":8,"face_eyes_score":8,"peak_action_score":9,"ball_in_frame_score":7,"exposure_score":7,"composition_score":8,"convergence_score":9,"lightroom_suggestions":[],"develop_settings":{},"keep_recommendation":true}"#
+        let encodedScore = try #require(String(data: JSONEncoder().encode(scoreJSON), encoding: .utf8))
+        let response = Data("""
+        {
+          "name": "batches/123",
+          "done": true,
+          "metadata": {"state": "JOB_STATE_SUCCEEDED"},
+          "response": {"inlinedResponses": {"inlinedResponses": [
+            {"response": {"candidates": [{"content": {"parts": [{"text": \(encodedScore)}]}}]}}
+          ]}}
+        }
+        """.utf8)
+
+        let result = try GeminiBatchClient.parseStatus(response, job: job)
+        #expect(result.state == .succeeded)
+        #expect(result.scoresByPath["/game/IMG_1.CR3"]?.composite == 8.2)
+        #expect(result.failedPaths.isEmpty)
+    }
+
+    @Test func geminiBatchReadsResourceStatus() throws {
+        let job = GeminiBatchJob(
+            name: "batches/456", modelID: "gemini-3.7-flash",
+            photoPaths: ["/game/IMG_2.CR3"], submittedAt: .now
+        )
+        let response = Data(#"{"name":"batches/456","state":"BATCH_STATE_RUNNING"}"#.utf8)
+
+        let result = try GeminiBatchClient.parseStatus(response, job: job)
+        #expect(result.state == .running)
+    }
+
     @Test func geminiSelectorReplacesRetiredPreferredModelFromLiveCatalog() {
         let models = [
             remoteModel("gemini-3.1-pro-preview", methods: ["generateContent"]),

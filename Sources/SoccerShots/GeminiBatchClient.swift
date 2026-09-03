@@ -128,14 +128,28 @@ struct GeminiBatchClient: Sendable {
         request.timeoutInterval = 60
         request.setValue(apiKey, forHTTPHeaderField: "x-goog-api-key")
         let data = try await responseData(for: request)
-        let envelope = try JSONDecoder().decode(StatusEnvelope.self, from: data)
-        let state = envelope.state.uppercased()
+        return try Self.parseStatus(data, job: job)
+    }
+
+    static func parseStatus(_ data: Data, job: GeminiBatchJob) throws -> GeminiBatchResult {
+        let envelope: StatusEnvelope
+        do {
+            envelope = try JSONDecoder().decode(StatusEnvelope.self, from: data)
+        } catch {
+            throw SoccerShotsError.message("Gemini returned an unreadable batch status: \(error.localizedDescription)")
+        }
+        guard let rawState = envelope.state ?? envelope.metadata?.state else {
+            throw SoccerShotsError.message(
+                "Gemini returned a batch status without a state. The submitted job was kept so it can be checked again."
+            )
+        }
+        let state = rawState.uppercased()
 
         if state.hasSuffix("PENDING") { return .init(state: .pending, scoresByPath: [:], failedPaths: []) }
         if state.hasSuffix("RUNNING") { return .init(state: .running, scoresByPath: [:], failedPaths: []) }
         if state.hasSuffix("FAILED") || state.hasSuffix("CANCELLED") || state.hasSuffix("EXPIRED") {
             return .init(
-                state: .failed(envelope.error?.message ?? "Gemini batch ended in \(envelope.state)."),
+                state: .failed(envelope.error?.message ?? "Gemini batch ended in \(rawState)."),
                 scoresByPath: [:], failedPaths: job.photoPaths
             )
         }
@@ -143,7 +157,8 @@ struct GeminiBatchClient: Sendable {
             return .init(state: .pending, scoresByPath: [:], failedPaths: [])
         }
 
-        let responses = (envelope.output ?? envelope.dest)?.inlinedResponses?.inlinedResponses ?? []
+        let responses = (envelope.output ?? envelope.dest ?? envelope.response)?
+            .inlinedResponses?.inlinedResponses ?? []
         var scores: [String: PhotoScore] = [:]
         var failed: [String] = []
         for (index, path) in job.photoPaths.enumerated() {
@@ -192,10 +207,16 @@ struct GeminiBatchClient: Sendable {
 }
 
 private struct StatusEnvelope: Decodable {
-    let state: String
+    let state: String?
+    let metadata: Metadata?
     let output: Output?
     let dest: Output?
+    let response: Output?
     let error: APIError?
+
+    struct Metadata: Decodable {
+        let state: String?
+    }
 
     struct Output: Decodable {
         let inlinedResponses: Responses?
