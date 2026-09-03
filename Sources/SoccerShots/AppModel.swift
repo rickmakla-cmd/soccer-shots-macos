@@ -24,6 +24,9 @@ final class AppModel: ObservableObject {
     @Published private(set) var localModelID: String
     @Published private(set) var benchmarkModelID: String
     @Published private(set) var geminiModelID: String
+    @Published private(set) var availableGeminiModels: [GeminiRemoteModel] = []
+    @Published private(set) var isRefreshingGeminiModels = false
+    @Published private(set) var geminiModelStatus: String?
     @Published private(set) var benchmarkProgress: BenchmarkProgress = .idle
     @Published private(set) var geminiBatchProgress: GeminiBatchProgress = .idle
     @Published private(set) var activeGeminiBatchJobs: [GeminiBatchJob] = []
@@ -36,6 +39,7 @@ final class AppModel: ObservableObject {
     private let keychain = KeychainStore()
     private let sessionStore = SessionStore()
     private let geminiBatchStore = GeminiBatchStore()
+    private let geminiCatalog = GeminiModelCatalogClient()
     private var scoringTask: Task<Void, Never>?
     private var benchmarkTask: Task<Void, Never>?
     private var folderLoadingTask: Task<Void, Never>?
@@ -52,7 +56,10 @@ final class AppModel: ObservableObject {
         localModelID = localID
         benchmarkModelID = defaults.string(forKey: "SoccerShots.benchmarkModelID")
             ?? LocalGemmaService.defaultBenchmarkModelID
-        geminiModelID = defaults.string(forKey: "SoccerShots.geminiModelID") ?? "gemini-2.5-pro"
+        let savedGemini = defaults.string(forKey: "SoccerShots.geminiModelID")
+        geminiModelID = savedGemini == nil || savedGemini == "gemini-2.5-pro"
+            ? "gemini-3.1-pro-preview"
+            : savedGemini!
         scorer = LocalGemmaService(modelID: localID)
         isGeminiConfigured = keychain.geminiAPIKey()?.isEmpty == false
         activeGeminiBatchJobs = geminiBatchStore.load()
@@ -466,10 +473,45 @@ final class AppModel: ObservableObject {
             let trimmedKey = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
             if !trimmedKey.isEmpty { try keychain.saveGeminiAPIKey(trimmedKey) }
             let trimmedModel = geminiModelID.trimmingCharacters(in: .whitespacesAndNewlines)
-            self.geminiModelID = trimmedModel.isEmpty ? "gemini-2.5-pro" : trimmedModel
-            UserDefaults.standard.set(self.geminiModelID, forKey: "SoccerShots.geminiModelID")
+            self.geminiModelID = trimmedModel.isEmpty ? "gemini-3.1-pro-preview" : trimmedModel
+            persistGeminiModel(self.geminiModelID)
             isGeminiConfigured = keychain.geminiAPIKey()?.isEmpty == false
+            if isGeminiConfigured { refreshGeminiModels() }
         } catch { presentedError = error.localizedDescription }
+    }
+
+    func refreshGeminiModels() {
+        guard !isRefreshingGeminiModels,
+              let apiKey = keychain.geminiAPIKey(), !apiKey.isEmpty else {
+            geminiModelStatus = "Save the Gemini API key before refreshing models."
+            return
+        }
+        isRefreshingGeminiModels = true
+        geminiModelStatus = "Querying models available to this API key…"
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                let models = try await geminiCatalog.list(apiKey: apiKey)
+                availableGeminiModels = models
+                if !models.contains(where: { $0.id == geminiModelID }), let recommended = models.first {
+                    geminiModelID = recommended.id
+                    persistGeminiModel(recommended.id)
+                    geminiModelStatus = "The retired saved model was replaced with \(recommended.displayName ?? recommended.id)."
+                } else {
+                    geminiModelStatus = "Found \(models.count) compatible photo-review model\(models.count == 1 ? "" : "s")."
+                }
+            } catch {
+                geminiModelStatus = error.localizedDescription
+            }
+            isRefreshingGeminiModels = false
+        }
+    }
+
+    func selectGeminiModel(_ modelID: String) {
+        let trimmed = modelID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        geminiModelID = trimmed
+        persistGeminiModel(trimmed)
     }
 
     func removeGeminiAPIKey() {
@@ -523,11 +565,33 @@ final class AppModel: ObservableObject {
         Task { [weak self] in
             guard let self else { return }
             do {
-                let review = try await GeminiDeepReviewClient(modelID: geminiModelID).review(
-                    photoURL: photo.fileURL,
-                    localScore: photo.score,
-                    apiKey: apiKey
-                )
+                let catalog = try await geminiCatalog.list(apiKey: apiKey)
+                let candidates = GeminiModelSelector.interactiveCandidates(preferred: geminiModelID, catalog: catalog)
+                guard !candidates.isEmpty else {
+                    throw SoccerShotsError.message("Gemini returned no current photo-review models for this API key.")
+                }
+                var review: DeepReview?
+                var usedModel: String?
+                var lastModelError: Error?
+                for candidate in candidates {
+                    do {
+                        review = try await GeminiDeepReviewClient(modelID: candidate).review(
+                            photoURL: photo.fileURL, localScore: photo.score, apiKey: apiKey
+                        )
+                        usedModel = candidate
+                        break
+                    } catch let error as GeminiHTTPError where error.definitelyRejectsModel {
+                        lastModelError = error
+                    }
+                }
+                guard let review, let usedModel else {
+                    throw lastModelError ?? SoccerShotsError.message("No available Gemini model completed Deep Review.")
+                }
+                if usedModel != geminiModelID {
+                    geminiModelID = usedModel
+                    persistGeminiModel(usedModel)
+                    geminiModelStatus = "Automatically switched to \(usedModel)."
+                }
                 guard let current = completedScores.firstIndex(where: { $0.id == id }) else { return }
                 completedScores[current].deepReview = review
                 if let record = try? record(for: photo.fileURL.path, modelContext: modelContext) {
@@ -568,10 +632,38 @@ final class AppModel: ObservableObject {
                     preparation.cancel()
                 }
 
+                let catalog = try await geminiCatalog.list(apiKey: apiKey)
+                let initialCandidates = GeminiModelSelector.batchCandidates(preferred: geminiModelID, catalog: catalog)
+                guard !initialCandidates.isEmpty else {
+                    throw SoccerShotsError.message("Gemini returned no current model suitable for discounted Batch scoring.")
+                }
+                var resolvedBatchModel: String?
+
                 for (offset, group) in groups.enumerated() {
                     try Task.checkCancellation()
                     geminiBatchProgress = .submitting(index: offset + 1, total: groups.count)
-                    let job = try await GeminiBatchClient().submit(group, modelID: geminiModelID, apiKey: apiKey)
+                    let candidates = GeminiModelSelector.batchCandidates(
+                        preferred: resolvedBatchModel ?? geminiModelID, catalog: catalog
+                    )
+                    var submittedJob: GeminiBatchJob?
+                    var lastModelError: Error?
+                    for candidate in candidates {
+                        do {
+                            submittedJob = try await GeminiBatchClient().submit(group, modelID: candidate, apiKey: apiKey)
+                            resolvedBatchModel = candidate
+                            break
+                        } catch let error as GeminiHTTPError where error.definitelyRejectsModel {
+                            lastModelError = error
+                        }
+                    }
+                    guard let job = submittedJob else {
+                        throw lastModelError ?? SoccerShotsError.message("No available Gemini model accepted the Batch request.")
+                    }
+                    if job.modelID != geminiModelID {
+                        geminiModelID = job.modelID
+                        persistGeminiModel(job.modelID)
+                        geminiModelStatus = "Batch automatically selected \(job.modelID)."
+                    }
                     activeGeminiBatchJobs.append(job)
                     try geminiBatchStore.save(activeGeminiBatchJobs)
                 }
@@ -683,6 +775,10 @@ final class AppModel: ObservableObject {
         do { try modelContext.save() }
         catch { presentedError = error.localizedDescription }
         persistSession()
+    }
+
+    private func persistGeminiModel(_ modelID: String) {
+        UserDefaults.standard.set(modelID, forKey: "SoccerShots.geminiModelID")
     }
 
     private func beginFolderLoad(

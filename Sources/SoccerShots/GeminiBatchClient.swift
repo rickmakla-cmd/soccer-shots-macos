@@ -184,17 +184,10 @@ struct GeminiBatchClient: Sendable {
     private func responseData(for request: URLRequest) async throws -> Data {
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
-            throw SoccerShotsError.message(Self.errorMessage(from: data))
+            let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+            throw GeminiHTTPError.make(statusCode: status, data: data, prefix: "Gemini Batch failed")
         }
         return data
-    }
-
-    private static func errorMessage(from data: Data) -> String {
-        if let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-           let error = object["error"] as? [String: Any], let message = error["message"] as? String {
-            return "Gemini Batch failed: \(message.prefix(800))"
-        }
-        return "Gemini Batch request failed."
     }
 }
 
