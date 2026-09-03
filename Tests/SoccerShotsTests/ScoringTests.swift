@@ -166,6 +166,53 @@ struct ScoringTests {
         #expect(store.load() == [job])
     }
 
+    @Test func geminiSelectorReplacesRetiredPreferredModelFromLiveCatalog() {
+        let models = [
+            remoteModel("gemini-3.1-pro-preview", methods: ["generateContent"]),
+            remoteModel("gemini-3.6-flash", methods: ["generateContent", "batchGenerateContent"])
+        ]
+
+        #expect(
+            GeminiModelSelector.interactiveCandidates(
+                preferred: "gemini-2.5-pro", catalog: models
+            ).first == "gemini-3.1-pro-preview"
+        )
+        #expect(
+            GeminiModelSelector.batchCandidates(
+                preferred: "gemini-2.5-pro", catalog: models
+            ) == ["gemini-3.6-flash"]
+        )
+    }
+
+    @Test func geminiBatchSelectorPrefersExplicitBatchCapability() {
+        let models = [
+            remoteModel("gemini-3.7-flash", methods: ["generateContent"]),
+            remoteModel("gemini-3.6-flash", methods: ["generateContent", "batchGenerateContent"]),
+            remoteModel("text-embedding-999", methods: ["generateContent", "batchGenerateContent"])
+        ]
+
+        #expect(
+            GeminiModelSelector.batchCandidates(
+                preferred: "gemini-3.7-flash", catalog: models
+            ) == ["gemini-3.6-flash"]
+        )
+    }
+
+    @Test func geminiFallbackOnlyRetriesDefiniteModelRejection() {
+        #expect(GeminiHTTPError(
+            statusCode: 404,
+            serverMessage: "This model is no longer available to new users."
+        ).definitelyRejectsModel)
+        #expect(!GeminiHTTPError(
+            statusCode: 429,
+            serverMessage: "Model quota exceeded."
+        ).definitelyRejectsModel)
+        #expect(!GeminiHTTPError(
+            statusCode: 403,
+            serverMessage: "Billing is not enabled."
+        ).definitelyRejectsModel)
+    }
+
     @Test func discoveryChecksCancellationBeforeTouchingFolder() {
         struct Stop: Error {}
         #expect(throws: Stop.self) {
@@ -174,6 +221,10 @@ struct ScoringTests {
                 cancellationCheck: { throw Stop() }
             )
         }
+    }
+
+    private func remoteModel(_ id: String, methods: [String]) -> GeminiRemoteModel {
+        GeminiRemoteModel(name: "models/\(id)", displayName: id, supportedGenerationMethods: methods)
     }
 
     @Test func benchmarkSamplingSpansTheWholeSortedRange() {

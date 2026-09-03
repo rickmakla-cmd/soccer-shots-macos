@@ -30,7 +30,19 @@ struct SettingsView: View {
 
                 Section("Gemini — optional review and batch scoring") {
                     SecureField(model.isGeminiConfigured ? "API key saved in Keychain" : "Gemini API key", text: $apiKey)
-                    TextField("Gemini model ID", text: $geminiModelID)
+                    if model.availableGeminiModels.isEmpty {
+                        TextField("Preferred Gemini model ID", text: $geminiModelID)
+                    } else {
+                        Picker("Preferred review model", selection: $geminiModelID) {
+                            if !model.availableGeminiModels.contains(where: { $0.id == geminiModelID }) {
+                                Text(geminiModelID).tag(geminiModelID)
+                            }
+                            ForEach(model.availableGeminiModels) { option in
+                                Text(option.displayName ?? option.id).tag(option.id)
+                            }
+                        }
+                        .onChange(of: geminiModelID) { _, value in model.selectGeminiModel(value) }
+                    }
                     HStack {
                         Button(model.isGeminiConfigured ? "Update settings" : "Save to Keychain") {
                             model.saveGeminiSettings(apiKey: apiKey, geminiModelID: geminiModelID)
@@ -39,8 +51,15 @@ struct SettingsView: View {
                         if model.isGeminiConfigured {
                             Button("Remove API key", role: .destructive) { model.removeGeminiAPIKey() }
                         }
+                        Button(model.isRefreshingGeminiModels ? "Refreshing…" : "Refresh Models") {
+                            model.refreshGeminiModels()
+                        }
+                        .disabled(model.isRefreshingGeminiModels || !model.isGeminiConfigured)
                     }
-                    Text("Gemini is never used automatically. Deep Review sends one chosen photo immediately. Batch Scoring sends only selected photos through Google’s asynchronous discounted Batch API and stores its score separately from Gemma.")
+                    if let status = model.geminiModelStatus {
+                        Text(status).font(.caption).foregroundStyle(.secondary)
+                    }
+                    Text("Deep Review uses Google’s current Interactions API with the preferred model. Batch Scoring sends only selected photos through Google’s discounted asynchronous Batch API and automatically chooses a compatible current model when the preferred model is unavailable. Neither result replaces Gemma’s local primary score.")
                         .font(.callout).foregroundStyle(.secondary)
                 }
 
@@ -57,7 +76,9 @@ struct SettingsView: View {
             localModelID = model.localModelID
             geminiModelID = model.geminiModelID
             model.refreshModelDiskUsage()
+            if model.isGeminiConfigured { model.refreshGeminiModels() }
         }
+        .onReceive(model.$geminiModelID) { geminiModelID = $0 }
     }
 
     private var diskUsage: String {

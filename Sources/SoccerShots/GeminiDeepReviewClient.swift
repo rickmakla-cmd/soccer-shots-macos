@@ -1,10 +1,10 @@
 import Foundation
 
 struct GeminiDeepReviewClient: Sendable {
-    var modelID = "gemini-2.5-pro"
+    var modelID: String
     private let preparer = ImagePreparer()
 
-    init(modelID: String = "gemini-2.5-pro") {
+    init(modelID: String) {
         self.modelID = modelID
     }
 
@@ -13,13 +13,20 @@ struct GeminiDeepReviewClient: Sendable {
         let scoreJSON = String(data: try JSONEncoder().encode(localScore), encoding: .utf8) ?? "{}"
         let prompt = Self.prompt(localScoreJSON: scoreJSON)
         let body: [String: Any] = [
-            "contents": [["role": "user", "parts": [
-                ["text": prompt],
-                ["inline_data": ["mime_type": "image/jpeg", "data": prepared.jpegData.base64EncodedString()]]
-            ]]],
-            "generationConfig": ["responseMimeType": "application/json", "temperature": 0.2]
+            "model": modelID,
+            "store": false,
+            "input": [
+                ["type": "image", "mime_type": "image/jpeg", "data": prepared.jpegData.base64EncodedString()],
+                ["type": "text", "text": prompt]
+            ],
+            "generation_config": ["temperature": 0.2],
+            "response_format": [
+                "type": "text",
+                "mime_type": "application/json",
+                "schema": Self.responseSchema
+            ]
         ]
-        var request = URLRequest(url: URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(modelID):generateContent")!)
+        var request = URLRequest(url: URL(string: "https://generativelanguage.googleapis.com/v1beta/interactions")!)
         request.httpMethod = "POST"
         request.timeoutInterval = 180
         request.setValue(apiKey, forHTTPHeaderField: "x-goog-api-key")
@@ -27,14 +34,33 @@ struct GeminiDeepReviewClient: Sendable {
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
-            throw SoccerShotsError.message(Self.errorMessage(from: data))
+            let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+            throw GeminiHTTPError.make(statusCode: status, data: data, prefix: "Gemini Deep Review failed")
         }
-        let envelope = try JSONDecoder().decode(GeminiEnvelope.self, from: data)
-        guard let text = envelope.candidates?.first?.content?.parts?.compactMap(\.text).first,
+        let envelope = try JSONDecoder().decode(GeminiInteractionEnvelope.self, from: data)
+        if envelope.status == "failed" {
+            throw SoccerShotsError.message(envelope.error?.message ?? "Gemini Deep Review failed.")
+        }
+        guard let text = envelope.steps?.reversed().first(where: { $0.type == "model_output" })?
+            .content?.compactMap(\.text).first,
               let reviewData = text.data(using: .utf8) else {
             throw SoccerShotsError.message("Gemini returned no Deep Review text.")
         }
         return try JSONDecoder().decode(DeepReview.self, from: reviewData)
+    }
+
+    private static var responseSchema: [String: Any] {
+        [
+            "type": "object",
+            "properties": [
+                "assessment": ["type": "string"],
+                "limiting_factors": ["type": "array", "items": ["type": "string"]],
+                "fixable": ["type": "boolean"],
+                "suggested_fix": ["type": ["string", "null"]],
+                "crop_suggestion": ["type": ["string", "null"]]
+            ],
+            "required": ["assessment", "limiting_factors", "fixable", "suggested_fix", "crop_suggestion"]
+        ]
     }
 
     static func prompt(localScoreJSON: String) -> String {
@@ -48,18 +74,19 @@ struct GeminiDeepReviewClient: Sendable {
         """
     }
 
-    private static func errorMessage(from data: Data) -> String {
-        if let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-           let error = object["error"] as? [String: Any], let message = error["message"] as? String {
-            return "Gemini Deep Review failed: \(message.prefix(800))"
-        }
-        return "Gemini Deep Review failed."
-    }
 }
 
-private struct GeminiEnvelope: Decodable {
-    let candidates: [Candidate]?
-    struct Candidate: Decodable { let content: Content? }
-    struct Content: Decodable { let parts: [Part]? }
-    struct Part: Decodable { let text: String? }
+private struct GeminiInteractionEnvelope: Decodable {
+    let status: String?
+    let steps: [Step]?
+    let error: APIError?
+    struct Step: Decodable {
+        let type: String
+        let content: [Content]?
+    }
+    struct Content: Decodable {
+        let type: String?
+        let text: String?
+    }
+    struct APIError: Decodable { let message: String? }
 }

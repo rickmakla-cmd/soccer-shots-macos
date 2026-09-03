@@ -17,9 +17,9 @@ This repository is a Swift/SwiftUI rewrite of the validated Electron prototype a
 - SwiftData score persistence with size/mtime cache validation and session folder tracking.
 - Filtered/sorted gallery, filter-aware Select All/Deselect All, visible click-drag marquee selection, native focus ring, arrow-key navigation, Space export selection, Enter detail, and X reject controls.
 - Full score-detail view with Lightroom guidance, exact generated develop values, metadata, selection/reject actions, and previous/next navigation.
-- Settings UI for the local model and Keychain-backed optional Gemini configuration.
-- Explicit per-photo Gemini Deep Review with structured JSON stored beside the unchanged local score.
-- Selected-photo Gemini Batch Scoring with discounted asynchronous jobs, automatic payload splitting, durable job restoration, and side-by-side scores that never replace the Gemma primary result.
+- Settings UI for the local model and Keychain-backed optional Gemini configuration, including live model discovery from the API key and a selectable preferred model.
+- Explicit per-photo Gemini Deep Review through Google’s current Interactions API with structured JSON stored beside the unchanged local score.
+- Selected-photo Gemini Batch Scoring with discounted asynchronous jobs, automatic payload splitting, durable job restoration, capability-aware model fallback, and side-by-side scores that never replace the Gemma primary result.
 - Automatic restoration of the active folder, cached scores, gallery filter/sort, focused photo, and review decisions.
 - Security-scoped folder bookmarks with a path fallback and a clean close-session action.
 - Responsive background RAW discovery during folder selection and session restoration, with cancellation support.
@@ -53,6 +53,8 @@ Choose **A/B Benchmark…** after a folder has stored primary scores. The benchm
 Select photos in the gallery, then choose **Score Selected…** under **Gemini Batch**. After confirmation, SoccerShots prepares smaller JPEG copies, splits requests below Google’s 20 MB inline-batch limit, and submits true asynchronous Batch API jobs. Google currently prices Batch API processing at 50% of equivalent standard requests and targets completion within 24 hours. Batch requires a paid Gemini API project.
 
 Submitted job identifiers and their source-photo mappings are saved locally. SoccerShots checks results every 30 seconds while monitoring is active and resumes pending jobs after the app reopens. Gemini scores and Lightroom suggestions are stored separately for comparison; they never change Gemma’s keeper, rejection, or export decisions.
+
+SoccerShots queries Google’s model catalog using the saved API key before a Deep Review or Batch submission. A retired saved model is replaced with a current selectable model. Deep Review uses the Interactions API; Batch remains on the discounted Batch API and selects a model advertising Batch support. If the catalog does not expose Batch capability flags, SoccerShots tries current Flash models in newest-first order. It retries another model only when Google definitively rejects the model before creating a job, not for billing, quota, timeout, or ambiguous network errors.
 
 ## Lightroom export
 
