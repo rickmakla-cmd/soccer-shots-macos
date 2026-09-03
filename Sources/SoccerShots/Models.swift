@@ -140,6 +140,7 @@ struct ScoredPhoto: Codable, Identifiable, Equatable, Sendable {
     var deepReview: DeepReview?
     var benchmarkResult: ModelBenchmarkResult? = nil
     var geminiBatchResult: ModelBenchmarkResult? = nil
+    var evidenceBenchmarkResults: [EvidenceBenchmarkResult] = []
     var isPostProcessed: Bool
     var isManuallyRejected: Bool
     var isSelectedForExport: Bool
@@ -187,6 +188,24 @@ enum BenchmarkAnalysis {
             averageDelta: candidate - baseline,
             keeperAgreementRate: Double(agreements) / count,
             averageDurationSeconds: duration
+        )
+    }
+}
+
+enum EvidenceBenchmarkAnalysis {
+    static func summary(for photos: [ScoredPhoto], modelID: String) -> BenchmarkSummary? {
+        let completed = photos.compactMap { photo -> (PhotoScore, EvidenceBenchmarkResult)? in
+            photo.evidenceBenchmarkResults.last(where: { $0.modelID == modelID }).map { (photo.score, $0) }
+        }
+        guard !completed.isEmpty else { return nil }
+        let count = Double(completed.count)
+        return BenchmarkSummary(
+            completed: completed.count,
+            averageBaseline: completed.reduce(0) { $0 + $1.0.composite } / count,
+            averageCandidate: completed.reduce(0) { $0 + $1.1.score.composite } / count,
+            averageDelta: completed.reduce(0) { $0 + $1.1.score.composite - $1.0.composite } / count,
+            keeperAgreementRate: Double(completed.filter { $0.0.keepRecommendation == $0.1.score.keepRecommendation }.count) / count,
+            averageDurationSeconds: completed.reduce(0) { $0 + $1.1.durationSeconds } / count
         )
     }
 }
@@ -245,8 +264,8 @@ enum BenchmarkProgress: Equatable, Sendable {
     var message: String {
         switch self {
         case .idle: "Benchmark ready"
-        case .unloadingPrimary: "Releasing Gemma 3 memory before loading Gemma 4…"
-        case let .preparing(index, total, filename): "Gemma 4 benchmark \(index) of \(total): \(filename)"
+        case .unloadingPrimary: "Releasing the primary model before loading the benchmark model…"
+        case let .preparing(index, total, filename): "Evidence benchmark \(index) of \(total): \(filename)"
         case let .model(message): message
         case let .finished(completed, failed): "A/B finished: \(completed) compared, \(failed) failed"
         }

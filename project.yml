@@ -50,8 +50,8 @@ targets:
         CODE_SIGN_ENTITLEMENTS: SoccerShots.entitlements
         ENABLE_HARDENED_RUNTIME: YES
         CODE_SIGN_STYLE: Automatic
-        MARKETING_VERSION: 0.1.7
-        CURRENT_PROJECT_VERSION: 8
+        MARKETING_VERSION: 0.1.8
+        CURRENT_PROJECT_VERSION: 9
     entitlements:
       path: SoccerShots.entitlements
 

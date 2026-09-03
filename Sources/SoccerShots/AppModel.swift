@@ -54,8 +54,10 @@ final class AppModel: ObservableObject {
         let defaults = UserDefaults.standard
         let localID = defaults.string(forKey: "SoccerShots.localModelID") ?? LocalGemmaService.defaultModelID
         localModelID = localID
-        benchmarkModelID = defaults.string(forKey: "SoccerShots.benchmarkModelID")
-            ?? LocalGemmaService.defaultBenchmarkModelID
+        let savedBenchmark = defaults.string(forKey: "SoccerShots.benchmarkModelID")
+        benchmarkModelID = savedBenchmark == nil || savedBenchmark == "mlx-community/gemma-4-e4b-it-8bit"
+            ? LocalGemmaService.defaultBenchmarkModelID
+            : savedBenchmark!
         let savedGemini = defaults.string(forKey: "SoccerShots.geminiModelID")
         geminiModelID = savedGemini == nil || savedGemini == "gemini-2.5-pro"
             ? "gemini-3.1-pro-preview"
@@ -93,6 +95,16 @@ final class AppModel: ObservableObject {
 
     var benchmarkSummary: BenchmarkSummary? {
         BenchmarkAnalysis.summary(for: benchmarkedPhotos)
+    }
+
+    var evidenceBenchmarkedPhotos: [ScoredPhoto] {
+        completedScores.filter { photo in
+            photo.evidenceBenchmarkResults.contains { $0.modelID == benchmarkModelID }
+        }
+    }
+
+    var evidenceBenchmarkSummary: BenchmarkSummary? {
+        EvidenceBenchmarkAnalysis.summary(for: evidenceBenchmarkedPhotos, modelID: benchmarkModelID)
     }
 
     var selectedForExport: [ScoredPhoto] {
@@ -385,6 +397,88 @@ final class AppModel: ObservableObject {
     }
 
     func cancelBenchmark() { benchmarkTask?.cancel() }
+
+    func startEvidenceBenchmark(sampleCount: Int, modelContext: ModelContext) {
+        guard !isScoring, !isBenchmarking, !isDeepReviewing, !isLoadingFolder, !isExporting else { return }
+        let candidates = BenchmarkAnalysis.evenlySpaced(visiblePhotos, count: sampleCount)
+        guard !candidates.isEmpty else { return }
+        let candidateModelID = benchmarkModelID
+        isBenchmarking = true
+        benchmarkProgress = .unloadingPrimary
+
+        benchmarkTask = Task { [weak self] in
+            guard let self else { return }
+            await scorer.unload()
+            let evidenceService = LocalEvidenceService(modelID: candidateModelID)
+            var completed = 0
+            var failed = 0
+            var lastFailure: String?
+
+            do {
+                try await evidenceService.verifyVision { [weak self] message in
+                    Task { @MainActor in self?.benchmarkProgress = .model(message) }
+                }
+            } catch is CancellationError {
+                await evidenceService.unload()
+                isBenchmarking = false
+                benchmarkProgress = .idle
+                benchmarkTask = nil
+                return
+            } catch {
+                await evidenceService.unload()
+                isBenchmarking = false
+                benchmarkProgress = .finished(completed: 0, failed: candidates.count)
+                benchmarkTask = nil
+                presentedError = error.localizedDescription
+                return
+            }
+
+            for (offset, candidate) in candidates.enumerated() {
+                guard !Task.isCancelled else { break }
+                benchmarkProgress = .preparing(
+                    index: offset + 1, total: candidates.count, filename: candidate.filename
+                )
+                let startedAt = Date()
+                do {
+                    let evidence = try await evidenceService.inspect(photoURL: candidate.fileURL) { [weak self] message in
+                        Task { @MainActor in self?.benchmarkProgress = .model(message) }
+                    }
+                    try Task.checkCancellation()
+                    let result = EvidenceBenchmarkResult(
+                        modelID: candidateModelID,
+                        scoredAt: Date(),
+                        durationSeconds: Date().timeIntervalSince(startedAt),
+                        evidence: evidence,
+                        score: EvidenceRuleEngine().score(evidence)
+                    )
+                    guard let current = completedScores.firstIndex(where: { $0.fileURL.path == candidate.fileURL.path }) else {
+                        continue
+                    }
+                    completedScores[current].evidenceBenchmarkResults.removeAll { $0.modelID == candidateModelID }
+                    completedScores[current].evidenceBenchmarkResults.append(result)
+                    if let record = try? record(for: candidate.fileURL.path, modelContext: modelContext) {
+                        try record.setEvidenceBenchmarkResults(completedScores[current].evidenceBenchmarkResults)
+                        try modelContext.save()
+                    }
+                    completed += 1
+                } catch is CancellationError {
+                    break
+                } catch {
+                    failed += 1
+                    lastFailure = "\(candidate.filename): \(error.localizedDescription)"
+                }
+            }
+
+            await evidenceService.unload()
+            benchmarkProgress = .finished(completed: completed, failed: failed)
+            isBenchmarking = false
+            benchmarkTask = nil
+            refreshModelDiskUsage()
+            if completed == 0, let lastFailure {
+                presentedError = "The evidence benchmark could not complete.\n\n\(lastFailure)"
+            }
+        }
+    }
 
     func selectPhoto(_ id: UUID?) {
         selectedPhotoID = id
@@ -907,6 +1001,7 @@ final class AppModel: ObservableObject {
             scoringVersion: record.scoringVersion, scoringEngine: record.scoringEngine,
             score: score, deepReview: record.deepReview, benchmarkResult: record.benchmarkResult,
             geminiBatchResult: record.geminiBatchResult,
+            evidenceBenchmarkResults: record.evidenceBenchmarkResults,
             isPostProcessed: record.isPostProcessed,
             isManuallyRejected: record.isManuallyRejected, isSelectedForExport: record.isSelectedForExport
         )

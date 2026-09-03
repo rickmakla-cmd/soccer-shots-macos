@@ -48,7 +48,7 @@ struct RootView: View {
                             Button("Cancel after current photo", role: .cancel) { model.cancelScoring() }
                         }
                         if !model.completedScores.isEmpty {
-                            Button("A/B Benchmark…", systemImage: "arrow.left.arrow.right") {
+                            Button("Evidence Benchmark…", systemImage: "arrow.left.arrow.right") {
                                 isShowingBenchmark = true
                             }
                             .disabled(model.isScoring || model.isBenchmarking || model.isDeepReviewing)
@@ -498,6 +498,17 @@ private struct PhotoCard: View {
                 }
                 .font(.caption2)
                 .foregroundStyle(.orange)
+            }
+            if let result = photo.evidenceBenchmarkResults.max(by: { $0.scoredAt < $1.scoredAt }) {
+                HStack {
+                    Text("Evidence")
+                    Spacer()
+                    Text(result.score.composite, format: .number.precision(.fractionLength(1))).monospacedDigit()
+                    Text(String(format: "%+.1f", result.score.composite - photo.score.composite))
+                        .monospacedDigit().foregroundStyle(.secondary)
+                }
+                .font(.caption2)
+                .foregroundStyle(.cyan)
             }
         }
         .padding(10)

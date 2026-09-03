@@ -12,7 +12,7 @@ This repository is a Swift/SwiftUI rewrite of the validated Electron prototype a
 - ImageIO/Core Image orientation correction and 2400-pixel scoring cap.
 - In-process MLX VLM loading with visible download/inference progress.
 - Gemma 3 4B 4-bit scoring, defensive JSON parsing, and one repair attempt.
-- Guarded local A/B benchmarking against Gemma 4 E4B, with evenly distributed sampling, per-photo timing, persisted candidate scores, and no changes to authoritative keeper decisions.
+- Evidence-first local benchmarking with selectable Qwen3.5 4B/9B and Gemma 4 candidates, prominent-player crops, deterministic scoring caps, per-model history, and no changes to authoritative keeper decisions.
 - Deterministic composite calculation and the sharpness-only auto-reject rule.
 - SwiftData score persistence with size/mtime cache validation and session folder tracking.
 - Filtered/sorted gallery, filter-aware Select All/Deselect All, visible click-drag marquee selection, native focus ring, arrow-key navigation, Space export selection, Enter detail, and X reject controls.
@@ -46,7 +46,7 @@ xcodegen generate
 
 Then open `SoccerShots.xcodeproj`, choose the `SoccerShots` scheme, and run. The first score downloads `mlx-community/gemma-3-4b-it-4bit` into the app's Application Support model cache.
 
-Choose **A/B Benchmark…** after a folder has stored primary scores. The benchmark uses those Gemma 3 results as the baseline, unloads Gemma 3, and runs the selected sample through `mlx-community/gemma-4-e4b-it-8bit` sequentially. The first benchmark downloads about 8.9 GB. Results are stored separately and never replace the primary score, selection, or rejection state. The 8-bit checkpoint is the default because the stock Gemma 4 4-bit MLX checkpoint still has a reported quantized vision-projection loader defect. MLX Swift is pinned to upstream commit `09deb8c`, which fixes the E-series VLM loader incorrectly requiring K/V weights on shared layers.
+Choose **Evidence Benchmark…** after a folder has stored primary scores. Qwen3.5 4B and 9B are built-in candidates, with 9B selected by default. The model reports categorical visual evidence from the complete frame plus an automatically detected prominent-player crop; fixed SoccerShots rules calculate the comparison score and enforce face, action, obstruction, and convergence caps. Evidence and rule-based scores are stored separately and never replace the primary score, selection, rejection, Gemma 4, or Gemini results.
 
 ## Gemini batch scoring
 

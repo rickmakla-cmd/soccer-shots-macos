@@ -201,6 +201,34 @@ struct ScoringTests {
         #expect(result.state == .running)
     }
 
+    @Test func evidenceRulesCapBackFacingSubjectAndSevereObstruction() {
+        let evidence = PhotoEvidence(
+            primarySubject: "foreground player facing away",
+            faceVisibility: .back, faceSharpness: .sharp, subjectScale: .medium,
+            actionMoment: .ordinary, ballRelevance: .relevant, emotion: .unseen,
+            foregroundObstruction: .severe, backgroundClutter: .moderate,
+            exposureQuality: .good, confidence: 0.9,
+            observations: ["Fence crosses the player."]
+        )
+
+        let score = EvidenceRuleEngine().score(evidence)
+        #expect(score.faceEyes == 2)
+        #expect(score.composition == 1)
+        #expect(score.peakAction == 5)
+        #expect(score.convergence == 4)
+        #expect(!score.keepRecommendation)
+    }
+
+    @Test func evidenceParserReadsCategoricalJSON() throws {
+        let json = #"{"primary_subject":"goalkeeper","face_visibility":"profile","face_sharpness":"usable","subject_scale":"medium","action_moment":"peak","ball_relevance":"central","emotion":"visible","foreground_obstruction":"none","background_clutter":"minor","exposure_quality":"good","confidence":0.85,"observations":["Keeper is fully extended."]}"#
+        let evidence = try EvidenceParser().parse("result:\n\(json)")
+
+        #expect(evidence.faceVisibility == .profile)
+        #expect(evidence.actionMoment == .peak)
+        #expect(evidence.ballRelevance == .central)
+        #expect(evidence.confidence == 0.85)
+    }
+
     @Test func geminiSelectorReplacesRetiredPreferredModelFromLiveCatalog() {
         let models = [
             remoteModel("gemini-3.1-pro-preview", methods: ["generateContent"]),
@@ -295,6 +323,30 @@ struct ScoringTests {
         #expect(summary.averageDurationSeconds == 15)
         #expect(first.score.composite == 7.0)
         #expect(second.score.composite == 8.0)
+    }
+
+    @Test func evidenceSummaryKeepsSeparateResultsForEachCandidateModel() throws {
+        var photo = samplePhoto(composite: 8.0)
+        var qwen4Score = photo.score
+        qwen4Score.composite = 6.0
+        var qwen9Score = photo.score
+        qwen9Score.composite = 5.0
+        let evidence = PhotoEvidence(
+            primarySubject: "player", faceVisibility: .profile, faceSharpness: .usable,
+            subjectScale: .medium, actionMoment: .strong, ballRelevance: .relevant,
+            emotion: .visible, foregroundObstruction: .none, backgroundClutter: .minor,
+            exposureQuality: .good, confidence: 0.8, observations: []
+        )
+        photo.evidenceBenchmarkResults = [
+            .init(modelID: "qwen-4b", scoredAt: .distantPast, durationSeconds: 10, evidence: evidence, score: qwen4Score),
+            .init(modelID: "qwen-9b", scoredAt: .now, durationSeconds: 20, evidence: evidence, score: qwen9Score)
+        ]
+
+        let summary = try #require(EvidenceBenchmarkAnalysis.summary(for: [photo], modelID: "qwen-9b"))
+        #expect(summary.completed == 1)
+        #expect(summary.averageCandidate == 5.0)
+        #expect(summary.averageDelta == -3.0)
+        #expect(photo.evidenceBenchmarkResults.count == 2)
     }
 
     private func discoveredPhoto(_ filename: String, captureDate: Date) -> DiscoveredPhoto {

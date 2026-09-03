@@ -8,7 +8,7 @@ import Tokenizers
 
 actor LocalGemmaService {
     static let defaultModelID = "mlx-community/gemma-3-4b-it-4bit"
-    static let defaultBenchmarkModelID = "mlx-community/gemma-4-e4b-it-8bit"
+    static let defaultBenchmarkModelID = "mlx-community/Qwen3.5-9B-MLX-4bit"
 
     private let modelID: String
     private let modelDirectory: URL

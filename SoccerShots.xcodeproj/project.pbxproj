@@ -14,12 +14,14 @@
 		2D3ABDD1EA5727FE118AD98B /* ExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55D743CD01894CCBB5331C92 /* ExportService.swift */; };
 		2F683D9286225A6A5644A005 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA53BEF00C0AF36D1091261C /* Models.swift */; };
 		33A22B0A8A8BD4C212A650B1 /* SoccerShotsApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78D2F44EA504F7F1F19F4C38 /* SoccerShotsApp.swift */; };
+		34F3C4061BB54260B3C1F054 /* LocalEvidenceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F34B3AE29CA1575CDE3E21D0 /* LocalEvidenceService.swift */; };
 		4274DAFFFD189E5973023593 /* ScoreRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = 158957D3C8A4875C23C1448E /* ScoreRecord.swift */; };
 		446509772DBDF13A474F26C9 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BA37925ECEFF4B91B2CB168 /* RootView.swift */; };
 		5089294080E56772052F59C6 /* GeminiDeepReviewClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 132A4D58C21F770508043E86 /* GeminiDeepReviewClient.swift */; };
 		5A8A7ED799347C96CAC90408 /* PhotoDiscovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = A350693BADC0115A5AEC194D /* PhotoDiscovery.swift */; };
 		6009530AF989B3BE63B43047 /* ImagePreparer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B817ED27816AA48924562CA /* ImagePreparer.swift */; };
 		61E05844753652D5EC29E40A /* BurstComparisonView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E88ABA41F9C872F018FC59E4 /* BurstComparisonView.swift */; };
+		6DDE82E5F0F26DF4BAAE1628 /* EvidenceScoring.swift in Sources */ = {isa = PBXBuildFile; fileRef = F908E9C9DFC1615940A1494F /* EvidenceScoring.swift */; };
 		706AD7C7D31C05946381ADDB /* BenchmarkView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9EC7286D5D0DBA690CCD170 /* BenchmarkView.swift */; };
 		7C3F874F3C4C9F54230E6DCD /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97CA12EA6950C77CA42C33C6 /* SettingsView.swift */; };
 		7D4E15600E4F3940AB830BDB /* MLXHuggingFace in Frameworks */ = {isa = PBXBuildFile; productRef = DCDD3076C44EB0B607E20300 /* MLXHuggingFace */; };
@@ -69,7 +71,9 @@
 		AE5BD5375D2B2223BE24E345 /* GeminiModelCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeminiModelCatalog.swift; sourceTree = "<group>"; };
 		C9EC7286D5D0DBA690CCD170 /* BenchmarkView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BenchmarkView.swift; sourceTree = "<group>"; };
 		E88ABA41F9C872F018FC59E4 /* BurstComparisonView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BurstComparisonView.swift; sourceTree = "<group>"; };
+		F34B3AE29CA1575CDE3E21D0 /* LocalEvidenceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalEvidenceService.swift; sourceTree = "<group>"; };
 		F5E18F282358CB830115ECFF /* LocalGemmaService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalGemmaService.swift; sourceTree = "<group>"; };
+		F908E9C9DFC1615940A1494F /* EvidenceScoring.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvidenceScoring.swift; sourceTree = "<group>"; };
 		FA53BEF00C0AF36D1091261C /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -137,12 +141,14 @@
 				19764D2DA141FF340D51BEAE /* AppModel.swift */,
 				C9EC7286D5D0DBA690CCD170 /* BenchmarkView.swift */,
 				E88ABA41F9C872F018FC59E4 /* BurstComparisonView.swift */,
+				F908E9C9DFC1615940A1494F /* EvidenceScoring.swift */,
 				55D743CD01894CCBB5331C92 /* ExportService.swift */,
 				A6577327E68237AA90405DB4 /* GeminiBatchClient.swift */,
 				132A4D58C21F770508043E86 /* GeminiDeepReviewClient.swift */,
 				AE5BD5375D2B2223BE24E345 /* GeminiModelCatalog.swift */,
 				2B817ED27816AA48924562CA /* ImagePreparer.swift */,
 				A8C01245233CF55D2DC6CED7 /* KeychainStore.swift */,
+				F34B3AE29CA1575CDE3E21D0 /* LocalEvidenceService.swift */,
 				F5E18F282358CB830115ECFF /* LocalGemmaService.swift */,
 				FA53BEF00C0AF36D1091261C /* Models.swift */,
 				A11C599697F995C08899DE94 /* PhotoDetailView.swift */,
@@ -262,12 +268,14 @@
 				2C89CE9DA8D6A187C4C806CB /* AppModel.swift in Sources */,
 				706AD7C7D31C05946381ADDB /* BenchmarkView.swift in Sources */,
 				61E05844753652D5EC29E40A /* BurstComparisonView.swift in Sources */,
+				6DDE82E5F0F26DF4BAAE1628 /* EvidenceScoring.swift in Sources */,
 				2D3ABDD1EA5727FE118AD98B /* ExportService.swift in Sources */,
 				2184F4CC02C5000E188A25C6 /* GeminiBatchClient.swift in Sources */,
 				5089294080E56772052F59C6 /* GeminiDeepReviewClient.swift in Sources */,
 				BB1F871D0AE8B6B9C2F230F9 /* GeminiModelCatalog.swift in Sources */,
 				6009530AF989B3BE63B43047 /* ImagePreparer.swift in Sources */,
 				090026613F7E6F10D7FA113D /* KeychainStore.swift in Sources */,
+				34F3C4061BB54260B3C1F054 /* LocalEvidenceService.swift in Sources */,
 				E3A34E7502B1320F107B2E3B /* LocalGemmaService.swift in Sources */,
 				2F683D9286225A6A5644A005 /* Models.swift in Sources */,
 				092E6380AA78DEFD5F0B032F /* PhotoDetailView.swift in Sources */,
@@ -456,7 +464,7 @@
 				CODE_SIGN_ENTITLEMENTS = SoccerShots.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 8;
+				CURRENT_PROJECT_VERSION = 9;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = SoccerShots;
@@ -465,7 +473,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.7;
+				MARKETING_VERSION = 0.1.8;
 				PRODUCT_BUNDLE_IDENTIFIER = com.rickmakla.SoccerShots;
 				PRODUCT_NAME = SoccerShots;
 				SDKROOT = macosx;
@@ -479,7 +487,7 @@
 				CODE_SIGN_ENTITLEMENTS = SoccerShots.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 8;
+				CURRENT_PROJECT_VERSION = 9;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = SoccerShots;
@@ -488,7 +496,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.7;
+				MARKETING_VERSION = 0.1.8;
 				PRODUCT_BUNDLE_IDENTIFIER = com.rickmakla.SoccerShots;
 				PRODUCT_NAME = SoccerShots;
 				SDKROOT = macosx;
