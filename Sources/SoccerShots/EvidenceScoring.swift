@@ -1,5 +1,48 @@
 import Foundation
 
+enum EvidenceVisionProbe {
+    private static let leftColors = ["magenta", "fuchsia", "purple", "pink"]
+    private static let rightColors = ["yellow", "gold", "golden", "lemon"]
+
+    static func passes(_ response: String) -> Bool {
+        let normalized = response.lowercased()
+        guard let left = firstRange(ofAny: leftColors, in: normalized),
+              let right = firstRange(ofAny: rightColors, in: normalized) else { return false }
+
+        if labeledSegment("left", in: normalized).map({ containsAny(leftColors, in: $0) }) == true,
+           labeledSegment("right", in: normalized).map({ containsAny(rightColors, in: $0) }) == true {
+            return true
+        }
+
+        // A normal left-to-right answer names the magenta/pink half before the yellow/gold half.
+        return left.lowerBound < right.lowerBound
+    }
+
+    static func diagnostic(_ response: String) -> String {
+        let compact = response
+            .replacingOccurrences(of: "\n", with: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !compact.isEmpty else { return "(empty)" }
+        return String(compact.prefix(180))
+    }
+
+    private static func firstRange(ofAny values: [String], in text: String) -> Range<String.Index>? {
+        values.compactMap { text.range(of: $0) }.min { $0.lowerBound < $1.lowerBound }
+    }
+
+    private static func labeledSegment(_ label: String, in text: String) -> Substring? {
+        guard let labelRange = text.range(of: label) else { return nil }
+        let tail = text[labelRange.upperBound...].prefix(80)
+        return tail.prefix { character in
+            character != ";" && character != "," && character != "\n" && character != "."
+        }
+    }
+
+    private static func containsAny(_ values: [String], in text: Substring) -> Bool {
+        values.contains { text.contains($0) }
+    }
+}
+
 enum FaceVisibility: String, Codable, CaseIterable, Sendable {
     case full, threeQuarter = "three_quarter", profile, obscured, back, absent
 }

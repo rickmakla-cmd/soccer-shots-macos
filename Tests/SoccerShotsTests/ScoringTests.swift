@@ -229,6 +229,14 @@ struct ScoringTests {
         #expect(evidence.confidence == 0.85)
     }
 
+    @Test func evidenceVisionProbeAcceptsNaturalColorNamesAndFormatting() {
+        #expect(EvidenceVisionProbe.passes("LEFT=pink; RIGHT=bright yellow"))
+        #expect(EvidenceVisionProbe.passes(#"{"left":"purple","right":"gold"}"#))
+        #expect(EvidenceVisionProbe.passes("The right side is golden; the left side is fuchsia."))
+        #expect(!EvidenceVisionProbe.passes("LEFT=yellow; RIGHT=magenta"))
+        #expect(!EvidenceVisionProbe.passes("I cannot see an image."))
+    }
+
     @Test func geminiSelectorReplacesRetiredPreferredModelFromLiveCatalog() {
         let models = [
             remoteModel("gemini-3.1-pro-preview", methods: ["generateContent"]),

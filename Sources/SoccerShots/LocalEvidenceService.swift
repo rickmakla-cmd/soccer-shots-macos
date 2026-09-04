@@ -40,15 +40,14 @@ actor LocalEvidenceService {
         let image = left.composited(over: right).cropped(to: extent)
         let session = ChatSession(model, generateParameters: .init(maxTokens: 80, temperature: 0))
         let response = try await session.respond(
-            to: "Return JSON only: {\"left\":\"color\",\"right\":\"color\"} for the two halves of this image.",
+            to: "Name the visible color on each half of this image. Answer briefly as LEFT=<color>; RIGHT=<color>.",
             images: [.ciImage(image)], videos: [], audios: []
         )
-        guard let start = response.firstIndex(of: "{"), let end = response.lastIndex(of: "}"),
-              let data = String(response[start...end]).data(using: .utf8),
-              let answer = try? JSONDecoder().decode(VisionProbe.self, from: data),
-              answer.left.lowercased().contains("magenta") || answer.left.lowercased().contains("purple"),
-              answer.right.lowercased().contains("yellow") else {
-            throw SoccerShotsError.message("The candidate loaded but did not pass the image-input check.")
+        guard EvidenceVisionProbe.passes(response) else {
+            let diagnostic = EvidenceVisionProbe.diagnostic(response)
+            throw SoccerShotsError.message(
+                "The candidate loaded but its image check was inconclusive. Response: \(diagnostic)"
+            )
         }
     }
 
@@ -95,9 +94,4 @@ actor LocalEvidenceService {
         let centerDistance = hypot(box.midX - 0.5, box.midY - 0.5)
         return area - centerDistance * 0.05
     }
-}
-
-private struct VisionProbe: Decodable {
-    let left: String
-    let right: String
 }
