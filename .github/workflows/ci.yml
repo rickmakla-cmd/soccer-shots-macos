@@ -2,17 +2,38 @@ name: macOS CI
 
 on:
   pull_request:
+    branches: [main]
+
   push:
     branches: [main]
 
+  workflow_dispatch:
+
+# Cancel obsolete CI runs when another commit is pushed.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
-  test:
+  validate:
+    name: Validate
     runs-on: macos-26
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Run Swift tests
         run: swift test
-      - name: Build native app
+
+      # Pull requests only need validation.
+      # Build the distributable app only from main or a manual run.
+
+      - name: Build Release app
+        if: github.event_name != 'pull_request'
         run: >-
           xcodebuild
           -project SoccerShots.xcodeproj
@@ -24,12 +45,24 @@ jobs:
           -skipMacroValidation
           CODE_SIGNING_ALLOWED=NO
           build
+
       - name: Package Apple-silicon app
+        if: github.event_name != 'pull_request'
         run: |
-          codesign --force --deep --sign - "DerivedData/Build/Products/Release/SoccerShots.app"
-          ditto -c -k --sequesterRsrc --keepParent "DerivedData/Build/Products/Release/SoccerShots.app" "SoccerShots-macOS-arm64.zip"
-      - uses: actions/upload-artifact@v4
+          codesign --force --deep --sign - \
+            "DerivedData/Build/Products/Release/SoccerShots.app"
+
+          ditto -c -k \
+            --sequesterRsrc \
+            --keepParent \
+            "DerivedData/Build/Products/Release/SoccerShots.app" \
+            "SoccerShots-macOS-arm64.zip"
+
+      - name: Upload installable app
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
         with:
           name: SoccerShots-macOS-arm64
           path: SoccerShots-macOS-arm64.zip
           if-no-files-found: error
+          retention-days: 3
