@@ -26,7 +26,11 @@ actor LocalEvidenceService {
         if let crop = prominentHumanCrop(in: prepared.ciImage) { images.append(.ciImage(crop)) }
         let model = try await loadModel(progress: progress)
         progress("Inspecting visible evidence…")
-        let session = ChatSession(model, generateParameters: .init(maxTokens: 900, temperature: 0))
+        let session = ChatSession(
+            model,
+            generateParameters: .init(maxTokens: 900, temperature: 0),
+            additionalContext: ["enable_thinking": false]
+        )
         let response = try await session.respond(to: EvidencePrompt.text, images: images, videos: [], audios: [])
         return try EvidenceParser().parse(response)
     }
@@ -38,7 +42,11 @@ actor LocalEvidenceService {
         let left = CIImage(color: .init(red: 1, green: 0, blue: 1)).cropped(to: .init(x: 0, y: 0, width: 256, height: 512))
         let right = CIImage(color: .init(red: 1, green: 1, blue: 0)).cropped(to: .init(x: 256, y: 0, width: 256, height: 512))
         let image = left.composited(over: right).cropped(to: extent)
-        let session = ChatSession(model, generateParameters: .init(maxTokens: 80, temperature: 0))
+        let session = ChatSession(
+            model,
+            generateParameters: .init(maxTokens: 240, temperature: 0),
+            additionalContext: ["enable_thinking": false]
+        )
         let response = try await session.respond(
             to: "Name the visible color on each half of this image. Answer briefly as LEFT=<color>; RIGHT=<color>.",
             images: [.ciImage(image)], videos: [], audios: []
