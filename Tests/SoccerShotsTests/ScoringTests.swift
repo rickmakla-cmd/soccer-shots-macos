@@ -204,9 +204,12 @@ struct ScoringTests {
     @Test func evidenceRulesCapBackFacingSubjectAndSevereObstruction() {
         let evidence = PhotoEvidence(
             primarySubject: "foreground player facing away",
-            faceVisibility: .back, faceSharpness: .sharp, subjectScale: .medium,
-            actionMoment: .ordinary, ballRelevance: .relevant, emotion: .unseen,
+            faceVisibility: .obscured, faceSharpness: .indeterminate,
+            subjectSharpness: .sharp, subjectScale: .medium, subjectOrientation: .awayFromCamera,
+            actionMoment: .strong, actionCue: .routineRunning,
+            ballRelevance: .relevant, emotion: .unseen,
             foregroundObstruction: .severe, backgroundClutter: .moderate,
+            emptySpace: nil, framingQuality: nil, subjectIsolation: nil,
             exposureQuality: .good, confidence: 0.9,
             observations: ["Fence crosses the player."]
         )
@@ -216,6 +219,28 @@ struct ScoringTests {
         #expect(score.composition == 1)
         #expect(score.peakAction == 5)
         #expect(score.convergence == 4)
+        #expect(!score.keepRecommendation)
+    }
+
+    @Test func evidenceRulesUseSubjectSharpnessAndLooseFraming() {
+        let evidence = PhotoEvidence(
+            primarySubject: "back-facing player running toward the ball",
+            faceVisibility: .obscured, faceSharpness: .blurred,
+            subjectSharpness: .usable, subjectScale: .medium, subjectOrientation: .awayFromCamera,
+            actionMoment: .strong, actionCue: .routineRunning,
+            ballRelevance: .relevant, emotion: .unseen,
+            foregroundObstruction: .none, backgroundClutter: .minor,
+            emptySpace: .severe, framingQuality: .loose, subjectIsolation: .weak,
+            exposureQuality: .good, confidence: 0.9,
+            observations: ["The player is approaching the ball."]
+        )
+
+        let score = EvidenceRuleEngine().score(evidence)
+        #expect(score.faceEyes == 2)
+        #expect(score.sharpness == 7)
+        #expect(score.peakAction == 5)
+        #expect(score.composition <= 3)
+        #expect(!score.autoReject)
         #expect(!score.keepRecommendation)
     }
 
@@ -341,8 +366,10 @@ struct ScoringTests {
         qwen9Score.composite = 5.0
         let evidence = PhotoEvidence(
             primarySubject: "player", faceVisibility: .profile, faceSharpness: .usable,
-            subjectScale: .medium, actionMoment: .strong, ballRelevance: .relevant,
+            subjectSharpness: nil, subjectScale: .medium, subjectOrientation: nil,
+            actionMoment: .strong, actionCue: nil, ballRelevance: .relevant,
             emotion: .visible, foregroundObstruction: .none, backgroundClutter: .minor,
+            emptySpace: nil, framingQuality: nil, subjectIsolation: nil,
             exposureQuality: .good, confidence: 0.8, observations: []
         )
         photo.evidenceBenchmarkResults = [
@@ -355,6 +382,45 @@ struct ScoringTests {
         #expect(summary.averageCandidate == 5.0)
         #expect(summary.averageDelta == -3.0)
         #expect(photo.evidenceBenchmarkResults.count == 2)
+    }
+
+    @Test func evidenceBenchmarkUsesOnlyExplicitlySelectedPhotos() {
+        var first = samplePhoto(composite: 8.0, filename: "IMG_1.jpg")
+        let second = samplePhoto(composite: 7.0, filename: "IMG_2.jpg")
+        var third = samplePhoto(composite: 6.0, filename: "IMG_3.jpg")
+        first.isSelectedForExport = true
+        third.isSelectedForExport = true
+
+        let selected = EvidenceBenchmarkAnalysis.selectedCandidates(from: [first, second, third])
+        #expect(selected.map(\.filename) == ["IMG_1.jpg", "IMG_3.jpg"])
+    }
+
+    @Test func consensusReportsVotesWithoutAveragingModelScores() throws {
+        var photo = samplePhoto(composite: 8.1)
+        var keepScore = photo.score
+        keepScore.composite = 8.8
+        keepScore.keepRecommendation = true
+        var reviewScore = photo.score
+        reviewScore.composite = 4.1
+        reviewScore.keepRecommendation = false
+        let evidence = try EvidenceParser().parse(#"{"primary_subject":"player","face_visibility":"back","face_sharpness":"indeterminate","subject_scale":"medium","action_moment":"ordinary","ball_relevance":"relevant","emotion":"unseen","foreground_obstruction":"none","background_clutter":"minor","exposure_quality":"good","confidence":0.9,"observations":[]}"#)
+
+        photo.benchmarkResult = .init(
+            modelID: "gemma-4", scoredAt: .distantPast, durationSeconds: 1, score: keepScore
+        )
+        photo.geminiBatchResult = .init(
+            modelID: "gemini", scoredAt: .distantPast, durationSeconds: 1, score: reviewScore
+        )
+        photo.evidenceBenchmarkResults = [
+            .init(modelID: "qwen", scoredAt: .distantPast, durationSeconds: 1, evidence: evidence, score: reviewScore),
+            .init(modelID: "qwen", scoredAt: .now, durationSeconds: 1, evidence: evidence, score: reviewScore)
+        ]
+
+        let consensus = try #require(photo.consensusAssessment)
+        #expect(consensus.decision == .split)
+        #expect(consensus.keepVotes == 2)
+        #expect(consensus.totalVotes == 4)
+        #expect(consensus.summary == "Split · 2/4 keep")
     }
 
     private func discoveredPhoto(_ filename: String, captureDate: Date) -> DiscoveredPhoto {

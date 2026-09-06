@@ -71,10 +71,31 @@ struct PhotoDetailView: View {
                         GridRow { Text("Rule-based score").foregroundStyle(.secondary); Text(result.score.composite, format: .number.precision(.fractionLength(1))) }
                         GridRow { Text("Face").foregroundStyle(.secondary); Text(result.evidence.faceVisibility.rawValue.replacingOccurrences(of: "_", with: " ").capitalized) }
                         GridRow { Text("Face detail").foregroundStyle(.secondary); Text(result.evidence.faceSharpness.rawValue.capitalized) }
+                        if let value = result.evidence.subjectSharpness {
+                            GridRow { Text("Subject sharpness").foregroundStyle(.secondary); Text(value.rawValue.capitalized) }
+                        }
+                        if let value = result.evidence.subjectOrientation {
+                            GridRow { Text("Orientation").foregroundStyle(.secondary); Text(value.rawValue.replacingOccurrences(of: "_", with: " ").capitalized) }
+                        }
                         GridRow { Text("Action").foregroundStyle(.secondary); Text(result.evidence.actionMoment.rawValue.capitalized) }
+                        if let value = result.evidence.actionCue {
+                            GridRow { Text("Visible action cue").foregroundStyle(.secondary); Text(value.rawValue.replacingOccurrences(of: "_", with: " ").capitalized) }
+                        }
                         GridRow { Text("Ball").foregroundStyle(.secondary); Text(result.evidence.ballRelevance.rawValue.replacingOccurrences(of: "_", with: " ").capitalized) }
                         GridRow { Text("Obstruction").foregroundStyle(.secondary); Text(result.evidence.foregroundObstruction.rawValue.capitalized) }
                         GridRow { Text("Clutter").foregroundStyle(.secondary); Text(result.evidence.backgroundClutter.rawValue.capitalized) }
+                        if let value = result.evidence.emptySpace {
+                            GridRow { Text("Empty space").foregroundStyle(.secondary); Text(value.rawValue.capitalized) }
+                        }
+                        if let value = result.evidence.framingQuality {
+                            GridRow { Text("Framing").foregroundStyle(.secondary); Text(value.rawValue.capitalized) }
+                        }
+                        if let value = result.evidence.subjectIsolation {
+                            GridRow { Text("Subject isolation").foregroundStyle(.secondary); Text(value.rawValue.capitalized) }
+                        }
+                        if let consensus = current.consensusAssessment {
+                            GridRow { Text("Model agreement").foregroundStyle(.secondary); Text(consensus.summary) }
+                        }
                         GridRow { Text("Confidence").foregroundStyle(.secondary); Text(result.evidence.confidence, format: .percent.precision(.fractionLength(0))) }
                     }
                     Text(result.evidence.primarySubject).font(.callout)

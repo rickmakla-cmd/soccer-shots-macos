@@ -55,8 +55,28 @@ enum SubjectScale: String, Codable, CaseIterable, Sendable {
     case close, medium, distant, tiny
 }
 
+enum SubjectOrientation: String, Codable, CaseIterable, Sendable {
+    case towardCamera = "toward_camera"
+    case sideOn = "side_on"
+    case awayFromCamera = "away_from_camera"
+    case indeterminate
+}
+
 enum ActionMoment: String, Codable, CaseIterable, Sendable {
     case peak, strong, ordinary, idle, unclear
+}
+
+enum ActionCue: String, Codable, CaseIterable, Sendable {
+    case ballContact = "ball_contact"
+    case airborneContest = "airborne_contest"
+    case fullExtension = "full_extension"
+    case saveAttempt = "save_attempt"
+    case celebration
+    case athleticMotion = "athletic_motion"
+    case routineRunning = "routine_running"
+    case positioning
+    case staticPose = "static"
+    case unclear
 }
 
 enum BallRelevance: String, Codable, CaseIterable, Sendable {
@@ -76,16 +96,30 @@ enum ExposureQuality: String, Codable, CaseIterable, Sendable {
     case good, recoverable, poor, indeterminate
 }
 
+enum FramingQuality: String, Codable, CaseIterable, Sendable {
+    case tight, balanced, loose, poor
+}
+
+enum SubjectIsolation: String, Codable, CaseIterable, Sendable {
+    case strong, adequate, weak, absent
+}
+
 struct PhotoEvidence: Codable, Equatable, Sendable {
     let primarySubject: String
     let faceVisibility: FaceVisibility
     let faceSharpness: FaceSharpness
+    let subjectSharpness: FaceSharpness?
     let subjectScale: SubjectScale
+    let subjectOrientation: SubjectOrientation?
     let actionMoment: ActionMoment
+    let actionCue: ActionCue?
     let ballRelevance: BallRelevance
     let emotion: EmotionLevel
     let foregroundObstruction: EvidenceLevel
     let backgroundClutter: EvidenceLevel
+    let emptySpace: EvidenceLevel?
+    let framingQuality: FramingQuality?
+    let subjectIsolation: SubjectIsolation?
     let exposureQuality: ExposureQuality
     let confidence: Double
     let observations: [String]
@@ -94,12 +128,18 @@ struct PhotoEvidence: Codable, Equatable, Sendable {
         case primarySubject = "primary_subject"
         case faceVisibility = "face_visibility"
         case faceSharpness = "face_sharpness"
+        case subjectSharpness = "subject_sharpness"
         case subjectScale = "subject_scale"
+        case subjectOrientation = "subject_orientation"
         case actionMoment = "action_moment"
+        case actionCue = "action_cue"
         case ballRelevance = "ball_relevance"
         case emotion
         case foregroundObstruction = "foreground_obstruction"
         case backgroundClutter = "background_clutter"
+        case emptySpace = "empty_space"
+        case framingQuality = "framing_quality"
+        case subjectIsolation = "subject_isolation"
         case exposureQuality = "exposure_quality"
         case confidence, observations
     }
@@ -118,23 +158,37 @@ enum EvidencePrompt {
     static let text = #"""
     Inspect this youth soccer photograph as evidence. Do not assign quality scores and do not suggest edits.
     Image 1 is the complete frame. Image 2, when present, is an automatically selected prominent-player crop.
+    Judge framing, empty space, clutter, and subject isolation from Image 1 only. Use Image 2 only to inspect the player and visible detail.
 
     Identify the primary photographic subject: the person who is largest, sharpest, or carrying the visual story.
     Report only what is visibly supported. Use "indeterminate", "unclear", or "unseen" when pixels are insufficient.
 
     Allowed values:
     face_visibility: full | three_quarter | profile | obscured | back | absent
+      obscured = a face exists toward/side-on to camera but another object, player, hair, or cropping blocks it
+      back = the subject is facing away and the back of the head/body is visible; do not call this obscured
+      absent = no face is present in the frame
     face_sharpness: sharp | usable | soft | blurred | indeterminate
+      judge only visible facial pixels; use indeterminate for back, absent, or genuinely blocked faces
+    subject_sharpness: sharp | usable | soft | blurred | indeterminate
+      judge the primary subject's body/kit edges, independently of whether a face is visible
     subject_scale: close | medium | distant | tiny
+    subject_orientation: toward_camera | side_on | away_from_camera | indeterminate
     action_moment: peak | strong | ordinary | idle | unclear
       peak = exact ball contact, full extension, airborne contest, full-stretch save, or unmistakable celebration
-      strong = clearly athletic movement immediately around the decisive moment
-      ordinary = routine running, passing setup, positioning, or action without a decisive instant
+      strong = clearly athletic movement immediately around a decisive contest, but not the exact peak
+      ordinary = routine running toward the ball, dribbling without a decisive contest, passing setup, or positioning
       idle = standing, walking, or post-play relaxation
+    action_cue: ball_contact | airborne_contest | full_extension | save_attempt | celebration | athletic_motion | routine_running | positioning | static | unclear
     ball_relevance: central | relevant | peripheral | absent | not_applicable
     emotion: strong | visible | neutral | unseen
     foreground_obstruction: none | minor | moderate | severe
     background_clutter: none | minor | moderate | severe
+    empty_space: none | minor | moderate | severe
+    framing_quality: tight | balanced | loose | poor
+      loose = meaningful action occupies too little of the complete frame or excessive empty field weakens it
+      poor = the primary story is unclear, badly placed, or needs a major crop
+    subject_isolation: strong | adequate | weak | absent
     exposure_quality: good | recoverable | poor | indeterminate
     confidence: number from 0.0 to 1.0
 
@@ -143,12 +197,18 @@ enum EvidencePrompt {
       "primary_subject": "short visual description",
       "face_visibility": "allowed value",
       "face_sharpness": "allowed value",
+      "subject_sharpness": "allowed value",
       "subject_scale": "allowed value",
+      "subject_orientation": "allowed value",
       "action_moment": "allowed value",
+      "action_cue": "allowed value",
       "ball_relevance": "allowed value",
       "emotion": "allowed value",
       "foreground_obstruction": "allowed value",
       "background_clutter": "allowed value",
+      "empty_space": "allowed value",
+      "framing_quality": "allowed value",
+      "subject_isolation": "allowed value",
       "exposure_quality": "allowed value",
       "confidence": 0.0,
       "observations": ["visible fact"]
@@ -172,12 +232,15 @@ struct EvidenceParser: Sendable {
 
 struct EvidenceRuleEngine: Sendable {
     func score(_ evidence: PhotoEvidence) -> PhotoScore {
-        var sharpness = value(evidence.faceSharpness)
+        let effectiveFaceVisibility: FaceVisibility =
+            evidence.subjectOrientation == .awayFromCamera ? .back : evidence.faceVisibility
+        let subjectSharpness = evidence.subjectSharpness ?? evidence.faceSharpness
+        var sharpness = value(subjectSharpness)
         if evidence.subjectScale == .tiny { sharpness = min(sharpness, 4) }
         if evidence.subjectScale == .distant { sharpness = min(sharpness, 6) }
 
-        let face = value(evidence.faceVisibility)
-        let action = value(evidence.actionMoment)
+        let face = value(effectiveFaceVisibility)
+        let action = evidence.actionCue.map { value($0) } ?? value(evidence.actionMoment)
         let ball: Double? = evidence.ballRelevance == .notApplicable ? nil : value(evidence.ballRelevance)
         let exposure = value(evidence.exposureQuality)
 
@@ -185,13 +248,21 @@ struct EvidenceRuleEngine: Sendable {
         composition -= scalePenalty(evidence.subjectScale)
         composition -= obstructionPenalty(evidence.foregroundObstruction)
         composition -= clutterPenalty(evidence.backgroundClutter)
+        composition -= emptySpacePenalty(evidence.emptySpace)
+        composition -= isolationPenalty(evidence.subjectIsolation)
         if evidence.foregroundObstruction == .severe { composition = min(composition, 3) }
+        if evidence.framingQuality == .loose { composition = min(composition, 5) }
+        if evidence.framingQuality == .poor { composition = min(composition, 3) }
+        if evidence.subjectIsolation == .weak { composition = min(composition, 5) }
+        if evidence.subjectIsolation == .absent { composition = min(composition, 3) }
         composition = max(0, composition)
 
-        var convergence = convergence(action: evidence.actionMoment, emotion: evidence.emotion)
+        var convergence = convergence(action: action, emotion: evidence.emotion)
         if face <= 4 || action <= 5 { convergence = min(convergence, 5) }
 
-        let autoReject = evidence.faceSharpness == .blurred && evidence.subjectScale != .tiny
+        let faceCanBeJudged = [FaceVisibility.full, .threeQuarter, .profile].contains(effectiveFaceVisibility)
+        let autoReject = subjectSharpness == .blurred && evidence.subjectScale != .tiny
+            && (evidence.subjectSharpness != nil || faceCanBeJudged)
         var result = PhotoScore(
             autoReject: autoReject,
             sharpness: sharpness,
@@ -227,6 +298,15 @@ struct EvidenceRuleEngine: Sendable {
     private func value(_ value: ActionMoment) -> Double {
         switch value { case .peak: 9; case .strong: 7; case .ordinary: 5; case .idle: 2; case .unclear: 3 }
     }
+    private func value(_ value: ActionCue) -> Double {
+        switch value {
+        case .ballContact, .airborneContest, .fullExtension, .saveAttempt, .celebration: 9
+        case .athleticMotion: 7
+        case .routineRunning, .positioning: 5
+        case .staticPose: 2
+        case .unclear: 3
+        }
+    }
     private func value(_ value: BallRelevance) -> Double {
         switch value { case .central: 9; case .relevant: 7; case .peripheral: 4; case .absent: 2; case .notApplicable: 0 }
     }
@@ -242,12 +322,28 @@ struct EvidenceRuleEngine: Sendable {
     private func clutterPenalty(_ value: EvidenceLevel) -> Double {
         switch value { case .none: 0; case .minor: 1; case .moderate: 2; case .severe: 4 }
     }
-    private func convergence(action: ActionMoment, emotion: EmotionLevel) -> Double {
-        if action == .peak && emotion == .strong { return 10 }
-        if action == .peak || emotion == .strong { return 8 }
-        if action == .strong && emotion == .visible { return 7 }
-        if action == .strong || emotion == .visible { return 6 }
-        if action == .ordinary { return 4 }
+    private func emptySpacePenalty(_ value: EvidenceLevel?) -> Double {
+        switch value {
+        case .some(.none), nil: 0
+        case .some(.minor): 0.5
+        case .some(.moderate): 2
+        case .some(.severe): 4
+        }
+    }
+    private func isolationPenalty(_ value: SubjectIsolation?) -> Double {
+        switch value {
+        case .some(.strong), nil: 0
+        case .some(.adequate): 1
+        case .some(.weak): 2
+        case .some(.absent): 4
+        }
+    }
+    private func convergence(action: Double, emotion: EmotionLevel) -> Double {
+        if action >= 9 && emotion == .strong { return 10 }
+        if action >= 9 || emotion == .strong { return 8 }
+        if action >= 7 && emotion == .visible { return 7 }
+        if action >= 7 || emotion == .visible { return 6 }
+        if action >= 5 { return 4 }
         return 2
     }
 }

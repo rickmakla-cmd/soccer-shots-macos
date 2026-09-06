@@ -6,7 +6,6 @@ struct BenchmarkView: View {
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var model: AppModel
     @Binding var isPresented: Bool
-    @State private var sampleCount = 10
     @State private var candidateModelID = ""
 
     private let presets = [
@@ -15,7 +14,7 @@ struct BenchmarkView: View {
         ("Gemma 4 E4B · existing comparison", "mlx-community/gemma-4-e4b-it-8bit")
     ]
 
-    private var candidateCount: Int { model.visiblePhotos.count }
+    private var candidateCount: Int { model.selectedForExport.count }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -44,7 +43,6 @@ struct BenchmarkView: View {
         .frame(minWidth: 780, minHeight: 650)
         .onAppear {
             candidateModelID = model.benchmarkModelID
-            sampleCount = min(10, max(1, candidateCount))
         }
     }
 
@@ -63,28 +61,26 @@ struct BenchmarkView: View {
                     .font(.callout)
                     .foregroundStyle(.secondary)
 
-                Stepper(value: $sampleCount, in: 1...max(1, candidateCount)) {
-                    LabeledContent("Sample", value: "\(sampleCount) of \(candidateCount) photos")
+                LabeledContent("Explicit selection", value: "\(candidateCount) checked photo\(candidateCount == 1 ? "" : "s")")
+                if candidateCount == 0 {
+                    Text("Close this window and check the gallery images you want to compare. SoccerShots will not choose benchmark photos automatically.")
+                        .font(.callout)
+                        .foregroundStyle(.orange)
+                } else {
+                    Text("Only the checked gallery images will be scored. The selection is snapshotted when the run starts, so the A/B set is exact and repeatable.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
                 }
-                .disabled(model.isBenchmarking || candidateCount == 0)
-                Text("The sample is spread evenly across the current \(model.galleryFilter.rawValue) score range rather than taking only the highest-ranked photos.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
 
                 HStack {
                     Button {
                         model.updateBenchmarkModelID(candidateModelID)
-                        model.startEvidenceBenchmark(sampleCount: sampleCount, modelContext: modelContext)
+                        model.startEvidenceBenchmark(modelContext: modelContext)
                     } label: {
-                        Label("Run Evidence A/B", systemImage: "arrow.triangle.2.circlepath")
+                        Label("Run A/B on \(candidateCount) Selected", systemImage: "arrow.triangle.2.circlepath")
                     }
                     .buttonStyle(.borderedProminent)
                     .disabled(model.isBenchmarking || candidateCount == 0 || candidateModelID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-
-                    if candidateCount > 1 {
-                        Button("Use All \(candidateCount)") { sampleCount = candidateCount }
-                            .disabled(model.isBenchmarking)
-                    }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -184,6 +180,11 @@ private struct BenchmarkRow: View {
                     .font(.headline.monospacedDigit())
                     .foregroundStyle(abs(delta) >= 1 ? .orange : .secondary)
                     .frame(width: 54, alignment: .trailing)
+            }
+            if let consensus = photo.consensusAssessment {
+                Text("Model agreement: \(consensus.summary). Scores are not averaged across uncalibrated models.")
+                    .font(.caption2)
+                    .foregroundStyle(consensus.decision == .split ? .orange : .secondary)
             }
             if comparisonHistory.count > 1 {
                 Divider()

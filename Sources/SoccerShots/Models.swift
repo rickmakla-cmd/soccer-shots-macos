@@ -150,6 +150,48 @@ struct ScoredPhoto: Codable, Identifiable, Equatable, Sendable {
     }
 }
 
+enum ConsensusDecision: String, Equatable, Sendable {
+    case keep = "Keep"
+    case review = "Review"
+    case split = "Split"
+}
+
+struct ConsensusAssessment: Equatable, Sendable {
+    let decision: ConsensusDecision
+    let keepVotes: Int
+    let totalVotes: Int
+
+    var summary: String {
+        "\(decision.rawValue) · \(keepVotes)/\(totalVotes) keep"
+    }
+}
+
+extension ScoredPhoto {
+    /// Reports model agreement without averaging scores whose numeric scales are
+    /// not calibrated to one another. Each model contributes at most one vote.
+    var consensusAssessment: ConsensusAssessment? {
+        var votes = [score.keepRecommendation]
+        if let benchmarkResult { votes.append(benchmarkResult.score.keepRecommendation) }
+        if let geminiBatchResult { votes.append(geminiBatchResult.score.keepRecommendation) }
+
+        let latestEvidenceByModel = Dictionary(
+            grouping: evidenceBenchmarkResults,
+            by: { $0.modelID }
+        ).compactMap { _, results in
+            results.max(by: { $0.scoredAt < $1.scoredAt })?.score.keepRecommendation
+        }
+        votes.append(contentsOf: latestEvidenceByModel)
+
+        guard votes.count >= 2 else { return nil }
+        let keepVotes = votes.filter { $0 }.count
+        let decision: ConsensusDecision
+        if keepVotes * 2 == votes.count { decision = .split }
+        else if keepVotes * 2 > votes.count { decision = .keep }
+        else { decision = .review }
+        return .init(decision: decision, keepVotes: keepVotes, totalVotes: votes.count)
+    }
+}
+
 struct BenchmarkSummary: Equatable, Sendable {
     let completed: Int
     let averageBaseline: Double
@@ -193,6 +235,10 @@ enum BenchmarkAnalysis {
 }
 
 enum EvidenceBenchmarkAnalysis {
+    static func selectedCandidates(from photos: [ScoredPhoto]) -> [ScoredPhoto] {
+        photos.filter(\.isSelectedForExport)
+    }
+
     static func summary(for photos: [ScoredPhoto], modelID: String) -> BenchmarkSummary? {
         let completed = photos.compactMap { photo -> (PhotoScore, EvidenceBenchmarkResult)? in
             photo.evidenceBenchmarkResults.last(where: { $0.modelID == modelID }).map { (photo.score, $0) }

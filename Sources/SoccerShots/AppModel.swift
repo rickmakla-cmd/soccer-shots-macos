@@ -99,7 +99,8 @@ final class AppModel: ObservableObject {
 
     var evidenceBenchmarkedPhotos: [ScoredPhoto] {
         completedScores.filter { photo in
-            photo.evidenceBenchmarkResults.contains { $0.modelID == benchmarkModelID }
+            photo.isSelectedForExport
+                && photo.evidenceBenchmarkResults.contains { $0.modelID == benchmarkModelID }
         }
     }
 
@@ -398,9 +399,11 @@ final class AppModel: ObservableObject {
 
     func cancelBenchmark() { benchmarkTask?.cancel() }
 
-    func startEvidenceBenchmark(sampleCount: Int, modelContext: ModelContext) {
+    func startEvidenceBenchmark(modelContext: ModelContext) {
         guard !isScoring, !isBenchmarking, !isDeepReviewing, !isLoadingFolder, !isExporting else { return }
-        let candidates = BenchmarkAnalysis.evenlySpaced(visiblePhotos, count: sampleCount)
+        // Snapshot only the user's explicit gallery selection. The benchmark must
+        // never substitute an automatic or evenly-spaced sample for these photos.
+        let candidates = EvidenceBenchmarkAnalysis.selectedCandidates(from: completedScores)
         guard !candidates.isEmpty else { return }
         let candidateModelID = benchmarkModelID
         isBenchmarking = true

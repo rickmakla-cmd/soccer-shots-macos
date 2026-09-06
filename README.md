@@ -12,7 +12,7 @@ This repository is a Swift/SwiftUI rewrite of the validated Electron prototype a
 - ImageIO/Core Image orientation correction and 2400-pixel scoring cap.
 - In-process MLX VLM loading with visible download/inference progress.
 - Gemma 3 4B 4-bit scoring, defensive JSON parsing, and one repair attempt.
-- Evidence-first local benchmarking with selectable Qwen3.5 4B/9B and Gemma 4 candidates, prominent-player crops, deterministic scoring caps, per-model history, and no changes to authoritative keeper decisions.
+- Explicitly selected-photo evidence benchmarking with selectable Qwen3.5 4B/9B and Gemma 4 candidates, full-frame composition evidence, prominent-player detail crops, deterministic scoring caps, per-model history, and model-agreement reporting.
 - Deterministic composite calculation and the sharpness-only auto-reject rule.
 - SwiftData score persistence with size/mtime cache validation and session folder tracking.
 - Filtered/sorted gallery, filter-aware Select All/Deselect All, visible click-drag marquee selection, native focus ring, arrow-key navigation, Space export selection, Enter detail, and X reject controls.
@@ -46,7 +46,7 @@ xcodegen generate
 
 Then open `SoccerShots.xcodeproj`, choose the `SoccerShots` scheme, and run. The first score downloads `mlx-community/gemma-3-4b-it-4bit` into the app's Application Support model cache.
 
-Choose **Evidence Benchmark…** after a folder has stored primary scores. Qwen3.5 4B and 9B are built-in candidates, with 9B selected by default. The model reports categorical visual evidence from the complete frame plus an automatically detected prominent-player crop; fixed SoccerShots rules calculate the comparison score and enforce face, action, obstruction, and convergence caps. Evidence and rule-based scores are stored separately and never replace the primary score, selection, rejection, Gemma 4, or Gemini results.
+Check the exact gallery photos to compare, then choose **Evidence Benchmark…**. SoccerShots snapshots that explicit selection and never substitutes a random or evenly spaced sample. Qwen3.5 4B and 9B are built-in candidates, with 9B selected by default. The model reports categorical visual evidence from the complete frame plus an automatically detected prominent-player crop; fixed rules distinguish back-facing and obstructed faces, judge whole-subject sharpness separately, and cap routine action, loose framing, empty space, and weak subject isolation. Model agreement is reported as keep/review votes without averaging incompatible numeric scales. Evidence results never replace the primary score, selection, rejection, Gemma 4, or Gemini results.
 
 ## Gemini batch scoring
 

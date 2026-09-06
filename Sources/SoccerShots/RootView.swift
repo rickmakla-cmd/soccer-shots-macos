@@ -510,6 +510,15 @@ private struct PhotoCard: View {
                 .font(.caption2)
                 .foregroundStyle(.cyan)
             }
+            if let consensus = photo.consensusAssessment {
+                HStack {
+                    Text("Agreement")
+                    Spacer()
+                    Text(consensus.summary).monospacedDigit()
+                }
+                .font(.caption2)
+                .foregroundStyle(consensus.decision == .split ? .orange : .secondary)
+            }
         }
         .padding(10)
         .background(.quaternary.opacity(0.45), in: RoundedRectangle(cornerRadius: 14))
