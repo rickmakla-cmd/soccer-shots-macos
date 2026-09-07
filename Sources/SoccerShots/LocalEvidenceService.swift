@@ -5,7 +5,6 @@ import MLXHuggingFace
 import MLXLMCommon
 import MLXVLM
 import Tokenizers
-import Vision
 
 actor LocalEvidenceService {
     private let modelID: String
@@ -20,17 +19,12 @@ actor LocalEvidenceService {
 
     func inspect(photoURL: URL, progress: @Sendable @escaping (String) -> Void) async throws -> PhotoEvidence {
         try Task.checkCancellation()
-        let includesCrop = LocalEvidenceImagePolicy.includesPlayerCrop(for: modelID)
-        progress(includesCrop ? "Preparing full frame and player crop…" : "Preparing full frame…")
+        progress("Preparing full frame…")
         let prepared = try preparer.prepare(photoURL)
-        var images: [UserInput.Image] = [.ciImage(prepared.ciImage)]
-        // The pinned Gemma 4 MLX processor can terminate the entire process while
-        // concatenating a full frame and a differently shaped crop. MLX reports
-        // this as a fatal assertion, so it cannot be recovered with do/catch.
-        if includesCrop,
-           let crop = prominentHumanCrop(in: prepared.ciImage) {
-            images.append(.ciImage(crop))
-        }
+        // The pinned Gemma 4 and Qwen 3.5 processors can both terminate the
+        // process while combining differently shaped images. MLX reports these
+        // failures as fatal assertions, so every local model receives one image.
+        let images: [UserInput.Image] = [.ciImage(prepared.ciImage)]
         let model = try await loadModel(progress: progress)
         progress("Inspecting visible evidence…")
         let session = ChatSession(
@@ -82,38 +76,4 @@ actor LocalEvidenceService {
         return loaded
     }
 
-    private func prominentHumanCrop(in image: CIImage) -> CIImage? {
-        let request = VNDetectHumanRectanglesRequest()
-        request.upperBodyOnly = false
-        let handler = VNImageRequestHandler(ciImage: image, options: [:])
-        guard (try? handler.perform([request])) != nil,
-              let observations = request.results, !observations.isEmpty else { return nil }
-        let chosen = observations.max { lhs, rhs in
-            prominence(lhs.boundingBox) < prominence(rhs.boundingBox)
-        }
-        guard let box = chosen?.boundingBox else { return nil }
-        let extent = image.extent
-        var crop = CGRect(
-            x: extent.minX + box.minX * extent.width,
-            y: extent.minY + box.minY * extent.height,
-            width: box.width * extent.width,
-            height: box.height * extent.height
-        )
-        crop = crop.insetBy(dx: -crop.width * 0.35, dy: -crop.height * 0.18).intersection(extent)
-        guard crop.width > 40, crop.height > 40 else { return nil }
-        return image.cropped(to: crop)
-    }
-
-    private func prominence(_ box: CGRect) -> CGFloat {
-        let area = box.width * box.height
-        let centerDistance = hypot(box.midX - 0.5, box.midY - 0.5)
-        return area - centerDistance * 0.05
-    }
-}
-
-enum LocalEvidenceImagePolicy {
-    static func includesPlayerCrop(for modelID: String) -> Bool {
-        let normalized = modelID.lowercased()
-        return !normalized.contains("gemma-4") && !normalized.contains("gemma4")
-    }
 }

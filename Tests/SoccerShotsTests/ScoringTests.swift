@@ -434,12 +434,6 @@ struct ScoringTests {
         #expect(consensus.summary == "Review · 0/2 keep")
     }
 
-    @Test func gemma4EvidenceUsesOneImageToAvoidMLXConcatenationCrash() {
-        #expect(!LocalEvidenceImagePolicy.includesPlayerCrop(for: "mlx-community/gemma-4-e4b-it-8bit"))
-        #expect(!LocalEvidenceImagePolicy.includesPlayerCrop(for: "vendor/Gemma4-E4B"))
-        #expect(LocalEvidenceImagePolicy.includesPlayerCrop(for: "mlx-community/Qwen3.5-9B-MLX-4bit"))
-    }
-
     @Test func manualReviewLabelIsPersistedWithScoreRecord() throws {
         var photo = samplePhoto(composite: 7.0)
         photo.manualReviewLabel = .reject
