@@ -232,7 +232,7 @@ struct ScoringTests {
         #expect(!score.keepRecommendation)
     }
 
-    @Test func evidenceRulesUseSubjectSharpnessAndLooseFraming() {
+    @Test func evidenceRulesUseSubjectSharpnessAndLooseFraming() throws {
         let evidence = PhotoEvidence(
             primarySubject: "back-facing player running toward the ball",
             faceVisibility: .obscured, faceSharpness: .blurred,
@@ -249,7 +249,8 @@ struct ScoringTests {
         #expect(score.faceEyes == 2)
         #expect(score.sharpness == 7)
         #expect(score.peakAction == 5)
-        #expect(score.composition <= 3)
+        let composition = try #require(score.composition)
+        #expect(composition <= 3)
         #expect(!score.autoReject)
         #expect(!score.keepRecommendation)
     }
