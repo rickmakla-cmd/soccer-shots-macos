@@ -46,6 +46,7 @@ struct PhotoDetailView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
                         scoreHeader
+                        manualReview
                         scoreBreakdown
                         suggestions
                         metadata
@@ -59,6 +60,24 @@ struct PhotoDetailView: View {
             }
         }
         .frame(minWidth: 980, minHeight: 700)
+    }
+
+    private var manualReview: some View {
+        GroupBox("Your ground-truth label") {
+            Picker("Decision", selection: Binding(
+                get: { current.manualReviewLabel },
+                set: { model.setManualReviewLabel($0, for: current.id, modelContext: modelContext) }
+            )) {
+                Text("Unlabeled").tag(nil as ManualReviewLabel?)
+                ForEach(ManualReviewLabel.allCases) { label in
+                    Text(label.title).tag(label as ManualReviewLabel?)
+                }
+            }
+            .pickerStyle(.segmented)
+            Text("These labels are stored locally and can be used to measure and tune local scoring against your actual choices.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
     }
 
     @ViewBuilder
@@ -262,14 +281,24 @@ struct PhotoDetailView: View {
                         }
                         GridRow {
                             Text("Gemini batch").foregroundStyle(.secondary)
-                            Text(result.score.composite, format: .number.precision(.fractionLength(1))).monospacedDigit()
-                            Text(result.score.keepRecommendation ? "Keep" : "Review")
+                            if result.score.autoReject {
+                                Text("Reject").foregroundStyle(.red).fontWeight(.semibold)
+                                Text("Auto-rejected").foregroundStyle(.red)
+                            } else {
+                                Text(result.score.composite, format: .number.precision(.fractionLength(1))).monospacedDigit()
+                                Text(result.score.keepRecommendation ? "Keep" : "Review")
+                            }
                         }
                         GridRow {
                             Text("Difference").foregroundStyle(.secondary)
-                            Text(String(format: "%+.1f", result.score.composite - current.score.composite)).monospacedDigit()
+                            Text(result.score.autoReject ? "Not comparable" : String(format: "%+.1f", result.score.composite - current.score.composite))
+                                .monospacedDigit()
                             Text(result.modelID)
                         }
+                    }
+                    if result.score.autoReject, let reason = result.score.rejectReason {
+                        Label(reason, systemImage: "xmark.octagon.fill")
+                            .foregroundStyle(.red)
                     }
                     if !result.score.lightroomSuggestions.isEmpty {
                         Text("Gemini Lightroom suggestions").font(.headline)

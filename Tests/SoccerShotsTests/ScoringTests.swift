@@ -428,10 +428,23 @@ struct ScoringTests {
         ]
 
         let consensus = try #require(photo.consensusAssessment)
-        #expect(consensus.decision == .split)
-        #expect(consensus.keepVotes == 2)
-        #expect(consensus.totalVotes == 4)
-        #expect(consensus.summary == "Split · 2/4 keep")
+        #expect(consensus.decision == .review)
+        #expect(consensus.keepVotes == 0)
+        #expect(consensus.totalVotes == 2)
+        #expect(consensus.summary == "Review · 0/2 keep")
+    }
+
+    @Test func gemma4EvidenceUsesOneImageToAvoidMLXConcatenationCrash() {
+        #expect(!LocalEvidenceImagePolicy.includesPlayerCrop(for: "mlx-community/gemma-4-e4b-it-8bit"))
+        #expect(!LocalEvidenceImagePolicy.includesPlayerCrop(for: "vendor/Gemma4-E4B"))
+        #expect(LocalEvidenceImagePolicy.includesPlayerCrop(for: "mlx-community/Qwen3.5-9B-MLX-4bit"))
+    }
+
+    @Test func manualReviewLabelIsPersistedWithScoreRecord() throws {
+        var photo = samplePhoto(composite: 7.0)
+        photo.manualReviewLabel = .reject
+        let record = try ScoreRecord(photo: photo)
+        #expect(record.manualReviewLabelRaw == ManualReviewLabel.reject.rawValue)
     }
 
     private func discoveredPhoto(_ filename: String, captureDate: Date) -> DiscoveredPhoto {

@@ -492,12 +492,17 @@ private struct PhotoCard: View {
                 HStack {
                     Text("Gemini")
                     Spacer()
-                    Text(result.score.composite, format: .number.precision(.fractionLength(1))).monospacedDigit()
-                    Text(String(format: "%+.1f", result.score.composite - photo.score.composite))
-                        .monospacedDigit().foregroundStyle(.secondary)
+                    if result.score.autoReject {
+                        Text("Reject").fontWeight(.semibold)
+                    } else {
+                        Text(result.score.composite, format: .number.precision(.fractionLength(1))).monospacedDigit()
+                        Text(String(format: "%+.1f", result.score.composite - photo.score.composite))
+                            .monospacedDigit().foregroundStyle(.secondary)
+                    }
                 }
                 .font(.caption2)
                 .foregroundStyle(.orange)
+                .help(result.score.rejectReason ?? "Gemini comparison")
             }
             if let result = photo.evidenceBenchmarkResults.max(by: { $0.scoredAt < $1.scoredAt }) {
                 HStack {
@@ -518,6 +523,15 @@ private struct PhotoCard: View {
                 }
                 .font(.caption2)
                 .foregroundStyle(consensus.decision == .split ? .orange : .secondary)
+            }
+            if let label = photo.manualReviewLabel {
+                HStack {
+                    Text("Your label")
+                    Spacer()
+                    Text(label.title).fontWeight(.semibold)
+                }
+                .font(.caption2)
+                .foregroundStyle(label == .keep ? .green : .red)
             }
         }
         .padding(10)

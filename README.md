@@ -12,11 +12,12 @@ This repository is a Swift/SwiftUI rewrite of the validated Electron prototype a
 - ImageIO/Core Image orientation correction and 2400-pixel scoring cap.
 - In-process MLX VLM loading with visible download/inference progress.
 - Gemma 3 4B 4-bit scoring, defensive JSON parsing, and one repair attempt.
-- Explicitly selected-photo evidence benchmarking with selectable Qwen3.5 4B/9B and Gemma 4 candidates, full-frame composition evidence, prominent-player detail crops, deterministic scoring caps, per-model history, and model-agreement reporting.
+- Explicitly selected-photo evidence benchmarking with recommended Qwen3.5 9B, optional Qwen3.5 4B, and experimental Gemma 4 candidates, deterministic scoring caps, per-model history, and cloud-versus-local agreement reporting.
 - Deterministic composite calculation and the sharpness-only auto-reject rule.
 - SwiftData score persistence with size/mtime cache validation and session folder tracking.
 - Filtered/sorted gallery, filter-aware Select All/Deselect All, visible click-drag marquee selection, native focus ring, arrow-key navigation, Space export selection, Enter detail, and X reject controls.
 - Full score-detail view with Lightroom guidance, exact generated develop values, metadata, selection/reject actions, and previous/next navigation.
+- Persistent user-assigned Keep/Reject ground-truth labels for evaluating and tuning model decisions.
 - Settings UI for the local model and Keychain-backed optional Gemini configuration, including live model discovery from the API key and a selectable preferred model.
 - Explicit per-photo Gemini Deep Review through Google’s current Interactions API with structured JSON stored beside the unchanged local score.
 - Selected-photo Gemini Batch Scoring with discounted asynchronous jobs, automatic payload splitting, durable job restoration, capability-aware model fallback, and side-by-side scores that never replace the Gemma primary result.
@@ -46,7 +47,7 @@ xcodegen generate
 
 Then open `SoccerShots.xcodeproj`, choose the `SoccerShots` scheme, and run. The first score downloads `mlx-community/gemma-3-4b-it-4bit` into the app's Application Support model cache.
 
-Check the exact gallery photos to compare, then choose **Evidence Benchmark…**. SoccerShots snapshots that explicit selection and never substitutes a random or evenly spaced sample. Qwen3.5 4B and 9B are built-in candidates, with 9B selected by default. The model reports categorical visual evidence from the complete frame plus an automatically detected prominent-player crop; fixed rules distinguish back-facing and obstructed faces, judge whole-subject sharpness separately, and cap routine action, loose framing, empty space, and weak subject isolation. Model agreement is reported as keep/review votes without averaging incompatible numeric scales. Evidence results never replace the primary score, selection, rejection, Gemma 4, or Gemini results.
+Check the exact gallery photos to compare, then choose **Evidence Benchmark…**. SoccerShots snapshots that explicit selection and never substitutes a random or evenly spaced sample. Qwen3.5 4B and 9B are built-in candidates, with 9B selected by default. Qwen reports categorical visual evidence from the complete frame plus an automatically detected prominent-player crop; fixed rules distinguish back-facing and obstructed faces, judge whole-subject sharpness separately, and cap routine action, loose framing, empty space, and weak subject isolation. Gemma 4 remains available as an experimental full-frame-only comparison because the pinned MLX processor can crash on multi-image input. Agreement compares only the latest local evidence result with Gemini, preventing correlated legacy Gemma variants from receiving extra votes. In the photo detail window, assign your own Keep or Reject label to create persistent ground truth for later calibration. Evidence results and labels never replace the primary score, selection, rejection, or Gemini results.
 
 ## Gemini batch scoring
 

@@ -20,10 +20,17 @@ actor LocalEvidenceService {
 
     func inspect(photoURL: URL, progress: @Sendable @escaping (String) -> Void) async throws -> PhotoEvidence {
         try Task.checkCancellation()
-        progress("Preparing full frame and player crop…")
+        let includesCrop = LocalEvidenceImagePolicy.includesPlayerCrop(for: modelID)
+        progress(includesCrop ? "Preparing full frame and player crop…" : "Preparing full frame…")
         let prepared = try preparer.prepare(photoURL)
         var images: [UserInput.Image] = [.ciImage(prepared.ciImage)]
-        if let crop = prominentHumanCrop(in: prepared.ciImage) { images.append(.ciImage(crop)) }
+        // The pinned Gemma 4 MLX processor can terminate the entire process while
+        // concatenating a full frame and a differently shaped crop. MLX reports
+        // this as a fatal assertion, so it cannot be recovered with do/catch.
+        if includesCrop,
+           let crop = prominentHumanCrop(in: prepared.ciImage) {
+            images.append(.ciImage(crop))
+        }
         let model = try await loadModel(progress: progress)
         progress("Inspecting visible evidence…")
         let session = ChatSession(
@@ -101,5 +108,12 @@ actor LocalEvidenceService {
         let area = box.width * box.height
         let centerDistance = hypot(box.midX - 0.5, box.midY - 0.5)
         return area - centerDistance * 0.05
+    }
+}
+
+enum LocalEvidenceImagePolicy {
+    static func includesPlayerCrop(for modelID: String) -> Bool {
+        let normalized = modelID.lowercased()
+        return !normalized.contains("gemma-4") && !normalized.contains("gemma4")
     }
 }

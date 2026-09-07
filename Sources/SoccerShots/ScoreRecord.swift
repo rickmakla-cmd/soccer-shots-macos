@@ -14,6 +14,7 @@ final class ScoreRecord {
     var isPostProcessed: Bool
     var isManuallyRejected: Bool
     var isSelectedForExport: Bool
+    var manualReviewLabelRaw: String?
     @Attribute(.externalStorage) var scoreData: Data
     @Attribute(.externalStorage) var deepReviewData: Data?
     @Attribute(.externalStorage) var benchmarkData: Data?
@@ -32,6 +33,7 @@ final class ScoreRecord {
         isPostProcessed = photo.isPostProcessed
         isManuallyRejected = photo.isManuallyRejected
         isSelectedForExport = photo.isSelectedForExport
+        manualReviewLabelRaw = photo.manualReviewLabel?.rawValue
         scoreData = try JSONEncoder().encode(photo.score)
         deepReviewData = try photo.deepReview.map { try JSONEncoder().encode($0) }
         benchmarkData = try photo.benchmarkResult.map { try JSONEncoder().encode($0) }

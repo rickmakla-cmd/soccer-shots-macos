@@ -565,6 +565,13 @@ final class AppModel: ObservableObject {
         }
     }
 
+    func setManualReviewLabel(_ label: ManualReviewLabel?, for id: UUID, modelContext: ModelContext) {
+        updatePhoto(id: id, modelContext: modelContext) { photo, record in
+            photo.manualReviewLabel = label
+            record?.manualReviewLabelRaw = label?.rawValue
+        }
+    }
+
     func saveGeminiSettings(apiKey: String, geminiModelID: String) {
         do {
             let trimmedKey = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1006,7 +1013,9 @@ final class AppModel: ObservableObject {
             geminiBatchResult: record.geminiBatchResult,
             evidenceBenchmarkResults: record.evidenceBenchmarkResults,
             isPostProcessed: record.isPostProcessed,
-            isManuallyRejected: record.isManuallyRejected, isSelectedForExport: record.isSelectedForExport
+            isManuallyRejected: record.isManuallyRejected,
+            isSelectedForExport: record.isSelectedForExport,
+            manualReviewLabel: record.manualReviewLabelRaw.flatMap { ManualReviewLabel(rawValue: $0) }
         )
     }
 }

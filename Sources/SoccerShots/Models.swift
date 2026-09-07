@@ -144,10 +144,19 @@ struct ScoredPhoto: Codable, Identifiable, Equatable, Sendable {
     var isPostProcessed: Bool
     var isManuallyRejected: Bool
     var isSelectedForExport: Bool
+    var manualReviewLabel: ManualReviewLabel? = nil
 
     func cacheMatches(fileSize currentSize: Int64, modificationDate currentDate: Date) -> Bool {
         fileSize == currentSize && abs(modificationDate.timeIntervalSince(currentDate)) < 0.001
     }
+}
+
+enum ManualReviewLabel: String, Codable, CaseIterable, Identifiable, Sendable {
+    case keep
+    case reject
+
+    var id: String { rawValue }
+    var title: String { rawValue.capitalized }
 }
 
 enum ConsensusDecision: String, Equatable, Sendable {
@@ -167,22 +176,19 @@ struct ConsensusAssessment: Equatable, Sendable {
 }
 
 extension ScoredPhoto {
-    /// Reports model agreement without averaging scores whose numeric scales are
-    /// not calibrated to one another. Each model contributes at most one vote.
+    /// Compares the cloud review with the most recent evidence-first local run.
+    /// Legacy Gemma scores are deliberately excluded because repeated variants
+    /// of the same local model family are correlated, not independent votes.
     var consensusAssessment: ConsensusAssessment? {
-        var votes = [score.keepRecommendation]
-        if let benchmarkResult { votes.append(benchmarkResult.score.keepRecommendation) }
-        if let geminiBatchResult { votes.append(geminiBatchResult.score.keepRecommendation) }
-
-        let latestEvidenceByModel = Dictionary(
-            grouping: evidenceBenchmarkResults,
-            by: { $0.modelID }
-        ).compactMap { _, results in
-            results.max(by: { $0.scoredAt < $1.scoredAt })?.score.keepRecommendation
+        guard let geminiBatchResult,
+              let latestEvidence = evidenceBenchmarkResults.max(by: { $0.scoredAt < $1.scoredAt }) else {
+            return nil
         }
-        votes.append(contentsOf: latestEvidenceByModel)
+        let votes = [
+            geminiBatchResult.score.keepRecommendation,
+            latestEvidence.score.keepRecommendation
+        ]
 
-        guard votes.count >= 2 else { return nil }
         let keepVotes = votes.filter { $0 }.count
         let decision: ConsensusDecision
         if keepVotes * 2 == votes.count { decision = .split }

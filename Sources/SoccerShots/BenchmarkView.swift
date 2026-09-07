@@ -11,7 +11,7 @@ struct BenchmarkView: View {
     private let presets = [
         ("Qwen3.5 4B · faster", "mlx-community/Qwen3.5-4B-MLX-4bit"),
         ("Qwen3.5 9B · higher quality", "mlx-community/Qwen3.5-9B-MLX-4bit"),
-        ("Gemma 4 E4B · existing comparison", "mlx-community/gemma-4-e4b-it-8bit")
+        ("Gemma 4 E4B · experimental (full frame only)", "mlx-community/gemma-4-e4b-it-8bit")
     ]
 
     private var candidateCount: Int { model.selectedForExport.count }
@@ -57,7 +57,7 @@ struct BenchmarkView: View {
                 TextField("Candidate Hugging Face model ID", text: $candidateModelID)
                     .textFieldStyle(.roundedBorder)
                     .disabled(model.isBenchmarking)
-                Text("Qwen observes categorical facts from the full frame plus an automatically detected prominent-player crop. SoccerShots—not the model—then calculates the score and enforces hard caps. First download: about 3.1 GB for 4B or 6.0 GB for 9B.")
+                Text("Qwen 3.5 9B is recommended. It observes categorical facts from the full frame plus an automatically detected player crop. Gemma 4 is experimental and receives only the full frame to avoid a known MLX multi-image crash. SoccerShots—not the model—calculates the score and enforces hard caps.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
 
@@ -185,6 +185,11 @@ private struct BenchmarkRow: View {
                 Text("Model agreement: \(consensus.summary). Scores are not averaged across uncalibrated models.")
                     .font(.caption2)
                     .foregroundStyle(consensus.decision == .split ? .orange : .secondary)
+            }
+            if let label = photo.manualReviewLabel {
+                Text("Your ground-truth label: \(label.title)")
+                    .font(.caption2)
+                    .foregroundStyle(label == .keep ? .green : .red)
             }
             if comparisonHistory.count > 1 {
                 Divider()
