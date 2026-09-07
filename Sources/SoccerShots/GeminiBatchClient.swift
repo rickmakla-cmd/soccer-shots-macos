@@ -81,7 +81,7 @@ struct GeminiBatchClient: Sendable {
             try Task.checkCancellation()
             progress(offset + 1, photos.count, photo.filename)
             let prepared = try preparer.prepare(photo.fileURL, maxDimension: 1_600, quality: 0.82)
-            let request = try requestObject(photo: photo, jpegData: prepared.jpegData)
+            let request = try Self.requestObject(jpegData: prepared.jpegData)
             let singleBody = try bodyData(requests: [request])
             guard singleBody.count <= Self.maximumBodyBytes else {
                 throw SoccerShotsError.message("\(photo.filename) is too large for Gemini Batch after preparation.")
@@ -173,7 +173,7 @@ struct GeminiBatchClient: Sendable {
         return .init(state: .succeeded, scoresByPath: scores, failedPaths: failed)
     }
 
-    private func requestObject(photo: ScoredPhoto, jpegData: Data) throws -> [String: Any] {
+    static func requestObject(jpegData: Data) throws -> [String: Any] {
         return [
             "request": [
                 "contents": [["role": "user", "parts": [
@@ -181,8 +181,7 @@ struct GeminiBatchClient: Sendable {
                     ["inline_data": ["mime_type": "image/jpeg", "data": jpegData.base64EncodedString()]]
                 ]]],
                 "generationConfig": ["responseMimeType": "application/json", "temperature": 0.2]
-            ],
-            "metadata": ["photoPath": photo.fileURL.path]
+            ]
         ]
     }
 

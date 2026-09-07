@@ -166,6 +166,16 @@ struct ScoringTests {
         #expect(store.load() == [job])
     }
 
+    @Test func geminiBatchRequestOmitsLocalFilesystemDetails() throws {
+        let request = try GeminiBatchClient.requestObject(jpegData: Data([0x01, 0x02]))
+        let encoded = try JSONSerialization.data(withJSONObject: request)
+        let text = try #require(String(data: encoded, encoding: .utf8))
+
+        #expect(!text.contains("photoPath"))
+        #expect(!text.contains("/Users/"))
+        #expect(!text.contains("/Volumes/"))
+    }
+
     @Test func geminiBatchReadsLongRunningOperationStatus() throws {
         let job = GeminiBatchJob(
             name: "batches/123", modelID: "gemini-3.7-flash",

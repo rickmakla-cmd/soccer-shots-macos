@@ -5,3 +5,13 @@ DerivedData/
 xcuserdata/
 .swiftpm/
 *.zip
+*.xcarchive
+
+# Local credentials and signing material must never be committed.
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.mobileprovision
+*.key

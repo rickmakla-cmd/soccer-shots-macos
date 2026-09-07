@@ -52,7 +52,7 @@ Check the exact gallery photos to compare, then choose **Evidence Benchmark…**
 
 Select photos in the gallery, then choose **Score Selected…** under **Gemini Batch**. After confirmation, SoccerShots prepares smaller JPEG copies, splits requests below Google’s 20 MB inline-batch limit, and submits true asynchronous Batch API jobs. Google currently prices Batch API processing at 50% of equivalent standard requests and targets completion within 24 hours. Batch requires a paid Gemini API project.
 
-Submitted job identifiers and their source-photo mappings are saved locally. SoccerShots checks results every 30 seconds while monitoring is active and resumes pending jobs after the app reopens. Gemini scores and Lightroom suggestions are stored separately for comparison; they never change Gemma’s keeper, rejection, or export decisions.
+Submitted job identifiers and their source-photo mappings are saved locally. Local filesystem paths are not included in Gemini request payloads. SoccerShots checks results every 30 seconds while monitoring is active and resumes pending jobs after the app reopens. Gemini scores and Lightroom suggestions are stored separately for comparison; they never change Gemma’s keeper, rejection, or export decisions.
 
 SoccerShots queries Google’s model catalog using the saved API key before a Deep Review or Batch submission. A retired saved model is replaced with a current selectable model. Deep Review uses the Interactions API; Batch remains on the discounted Batch API and selects a model advertising Batch support. If the catalog does not expose Batch capability flags, SoccerShots tries current Flash models in newest-first order. It retries another model only when Google definitively rejects the model before creating a job, not for billing, quota, timeout, or ambiguous network errors.
 
@@ -70,4 +70,4 @@ swift test
 
 ## Privacy boundary
 
-Folder discovery, primary scoring, caching, and XMP generation are local. Gemini is not called by the normal scoring pipeline. A cloud request happens only after an explicit single-photo Deep Review or confirmed selected-photo Batch Scoring action, using the API key stored in Keychain.
+Folder discovery, primary scoring, caching, and XMP generation are local. Gemini is not called by the normal scoring pipeline. A cloud request happens only after an explicit single-photo Deep Review or confirmed selected-photo Batch Scoring action. Those actions send a resized JPEG and scoring prompt to Google's Gemini API; they do not send the source file's local path. The API key is stored in Keychain and sent only to Google's API in an HTTP header. Never commit API keys, credentials, private photographs, or exported session data to this repository.
