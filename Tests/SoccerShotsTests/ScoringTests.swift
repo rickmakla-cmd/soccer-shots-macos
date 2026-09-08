@@ -10,9 +10,11 @@ struct ScoringTests {
         let extent = CGRect(x: 0, y: 0, width: 32, height: 32)
         let black = CIImage(color: .black).cropped(to: extent)
         let visible = CIImage(color: .init(red: 0.1, green: 0.5, blue: 0.2)).cropped(to: extent)
+        let blackCG = context.createCGImage(black, from: extent)!
+        let visibleCG = context.createCGImage(visible, from: extent)!
 
-        #expect(ImagePreparer.isEffectivelyBlack(black, context: context))
-        #expect(!ImagePreparer.isEffectivelyBlack(visible, context: context))
+        #expect(ImagePreparer.isEffectivelyBlack(blackCG))
+        #expect(!ImagePreparer.isEffectivelyBlack(visibleCG))
     }
 
     @Test func compositeExcludesNullableBallScore() throws {
