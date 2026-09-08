@@ -1,9 +1,20 @@
 import Foundation
+import CoreImage
 import Testing
 @testable import SoccerShots
 
 @Suite("Validated SoccerShots rules")
 struct ScoringTests {
+    @Test func preparedImageDetectsBlankFrames() {
+        let context = CIContext(options: [.cacheIntermediates: false])
+        let extent = CGRect(x: 0, y: 0, width: 32, height: 32)
+        let black = CIImage(color: .black).cropped(to: extent)
+        let visible = CIImage(color: .init(red: 0.1, green: 0.5, blue: 0.2)).cropped(to: extent)
+
+        #expect(ImagePreparer.isEffectivelyBlack(black, context: context))
+        #expect(!ImagePreparer.isEffectivelyBlack(visible, context: context))
+    }
+
     @Test func compositeExcludesNullableBallScore() throws {
         let json = """
         {"auto_reject":false,"sharpness_score":8,"face_eyes_score":8,"peak_action_score":9,"ball_in_frame_score":null,"exposure_score":7,"composition_score":6,"convergence_score":8,"lightroom_suggestions":[],"develop_settings":{},"keep_recommendation":true,"reject_reason":null,"jersey_number":"7","jersey_color":"blue","action_type":"celebration"}

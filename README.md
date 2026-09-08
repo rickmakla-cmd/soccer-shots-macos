@@ -51,7 +51,7 @@ Check the exact gallery photos to compare, then choose **Evidence Benchmark…**
 
 ## Gemini batch scoring
 
-Select photos in the gallery, then choose **Score Selected…** under **Gemini Batch**. After confirmation, SoccerShots prepares smaller JPEG copies, splits requests below Google’s 20 MB inline-batch limit, and submits true asynchronous Batch API jobs. Google currently prices Batch API processing at 50% of equivalent standard requests and targets completion within 24 hours. Batch requires a paid Gemini API project.
+Select photos in the gallery, then choose **Score Selected…** under **Gemini Batch**. After confirmation, SoccerShots renders camera RAW files through ImageIO, prepares smaller JPEG copies, rejects blank conversions locally, splits requests below Google's 20 MB inline-batch limit, and submits true asynchronous Batch API jobs. Google currently prices Batch API processing at 50% of equivalent standard requests and targets completion within 24 hours. Batch requires a paid Gemini API project.
 
 Submitted job identifiers and their source-photo mappings are saved locally. Local filesystem paths are not included in Gemini request payloads. SoccerShots checks results every 30 seconds while monitoring is active and resumes pending jobs after the app reopens. Gemini scores and Lightroom suggestions are stored separately for comparison; they never change Gemma’s keeper, rejection, or export decisions.
 
