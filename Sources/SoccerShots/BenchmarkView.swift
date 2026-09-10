@@ -9,9 +9,11 @@ struct BenchmarkView: View {
     @State private var candidateModelID = ""
 
     private let presets = [
-        ("Qwen3.5 4B · faster", "mlx-community/Qwen3.5-4B-MLX-4bit"),
-        ("Qwen3.5 9B · higher quality", "mlx-community/Qwen3.5-9B-MLX-4bit"),
-        ("Gemma 4 E4B · experimental", "mlx-community/gemma-4-e4b-it-8bit")
+        ("Qwen3.5 4B · recommended", "mlx-community/Qwen3.5-4B-MLX-4bit"),
+        ("LFM2.5-VL 1.6B · newest fast candidate", "mlx-community/LFM2.5-VL-1.6B-4bit"),
+        ("Qwen3.5 9B · comparison", "mlx-community/Qwen3.5-9B-MLX-4bit"),
+        ("Gemma 4 E4B · experimental", "mlx-community/gemma-4-e4b-it-8bit"),
+        ("Gemma 4 12B Unified · current quality", "mlx-community/gemma-4-12B-it-4bit")
     ]
 
     private var candidateCount: Int { model.selectedForExport.count }
@@ -57,7 +59,7 @@ struct BenchmarkView: View {
                 TextField("Candidate Hugging Face model ID", text: $candidateModelID)
                     .textFieldStyle(.roundedBorder)
                     .disabled(model.isBenchmarking)
-                Text("Qwen 3.5 9B is recommended. Every local model receives one complete frame because the current MLX Gemma 4 and Qwen processors can terminate the app on multi-image input. SoccerShots—not the model—calculates the score and enforces hard caps.")
+                Text("Qwen 3.5 4B remains the baseline for this Mac. LFM2.5-VL 1.6B is the newest small, native-compatible candidate; Gemma 4 12B is the higher-quality test with a larger memory cost. Qwen 3.8 currently starts at 27B and is not supported by this MLX runtime. Every model receives one complete frame; SoccerShots calculates the score from evidence and measured pixel sharpness.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
 
@@ -209,7 +211,8 @@ private struct BenchmarkRow: View {
 
     private var evidenceSummary: String {
         guard let evidence = result?.evidence else { return "No evidence result" }
-        return "Face: \(evidence.faceVisibility.rawValue) · Action: \(evidence.actionMoment.rawValue) · Obstruction: \(evidence.foregroundObstruction.rawValue)"
+        let pixel = result?.pixelSharpness.map { String(format: "%.1f", $0) } ?? "n/a"
+        return "Face: \(evidence.faceVisibility.rawValue) · Action: \(evidence.actionMoment.rawValue) · Pixel sharpness: \(pixel) · Obstruction: \(evidence.foregroundObstruction.rawValue)"
     }
 
     private var comparisonHistory: [(String, Double)] {
@@ -220,9 +223,12 @@ private struct BenchmarkRow: View {
     }
 
     private func shortName(_ modelID: String) -> String {
+        if modelID.localizedCaseInsensitiveContains("lfm2.5-vl-1.6b") { return "LFM2.5 1.6B" }
         if modelID.contains("9B") { return "Qwen 9B" }
         if modelID.contains("4B") && modelID.localizedCaseInsensitiveContains("qwen") { return "Qwen 4B" }
-        if modelID.localizedCaseInsensitiveContains("gemma") { return "Gemma 4 evidence" }
+        if modelID.localizedCaseInsensitiveContains("gemma-4-12b") { return "Gemma 4 12B" }
+        if modelID.localizedCaseInsensitiveContains("gemma-4-e4b") { return "Gemma 4 E4B" }
+        if modelID.localizedCaseInsensitiveContains("gemma") { return "Gemma evidence" }
         return modelID
     }
 

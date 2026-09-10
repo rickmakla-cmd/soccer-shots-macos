@@ -268,6 +268,64 @@ struct ScoringTests {
         #expect(!score.keepRecommendation)
     }
 
+    @Test func decisiveActionDoesNotLoseConvergenceBecauseFaceIsHidden() {
+        let evidence = PhotoEvidence(
+            primarySubject: "goalkeeper at full extension",
+            faceVisibility: .absent, faceSharpness: .indeterminate,
+            subjectSharpness: .sharp, subjectScale: .medium, subjectOrientation: .awayFromCamera,
+            actionMoment: .peak, actionCue: .saveAttempt,
+            ballRelevance: .central, emotion: .unseen,
+            foregroundObstruction: .none, backgroundClutter: .minor,
+            emptySpace: .moderate, framingQuality: .balanced, subjectIsolation: .adequate,
+            exposureQuality: .good, confidence: 0.9, observations: []
+        )
+
+        let score = EvidenceRuleEngine().score(evidence, pixelSharpness: 8)
+        #expect(score.faceEyes == 2)
+        #expect(score.sharpness == 8)
+        #expect(score.convergence == 8)
+        #expect(score.composite >= 6.5)
+        #expect(score.keepRecommendation)
+    }
+
+    @Test func measuredPixelSharpnessOverridesModelSharpnessClaim() {
+        let evidence = PhotoEvidence(
+            primarySubject: "player", faceVisibility: .profile, faceSharpness: .sharp,
+            subjectSharpness: .sharp, subjectScale: .medium, subjectOrientation: .sideOn,
+            actionMoment: .strong, actionCue: .athleticMotion,
+            ballRelevance: .relevant, emotion: .neutral,
+            foregroundObstruction: .none, backgroundClutter: .minor,
+            emptySpace: .minor, framingQuality: .balanced, subjectIsolation: .adequate,
+            exposureQuality: .good, confidence: 0.9, observations: []
+        )
+
+        let score = EvidenceRuleEngine().score(evidence, pixelSharpness: 4.5)
+        #expect(score.sharpness == 4.5)
+    }
+
+    @Test func measuredPixelsControlBlurRejectionWhenAvailable() {
+        let evidence = PhotoEvidence(
+            primarySubject: "player", faceVisibility: .profile, faceSharpness: .blurred,
+            subjectSharpness: .blurred, subjectScale: .medium, subjectOrientation: .sideOn,
+            actionMoment: .strong, actionCue: .athleticMotion,
+            ballRelevance: .relevant, emotion: .neutral,
+            foregroundObstruction: .none, backgroundClutter: .minor,
+            emptySpace: .minor, framingQuality: .balanced, subjectIsolation: .adequate,
+            exposureQuality: .good, confidence: 0.9, observations: []
+        )
+
+        #expect(!EvidenceRuleEngine().score(evidence, pixelSharpness: 8).autoReject)
+        #expect(EvidenceRuleEngine().score(evidence, pixelSharpness: 2).autoReject)
+    }
+
+    @Test func pixelSharpnessMappingIsBoundedAndMonotonic() {
+        #expect(PixelSharpnessAnalyzer.score(edgeStrength: 0) == 2)
+        #expect(PixelSharpnessAnalyzer.score(edgeStrength: 18) == 2)
+        #expect(PixelSharpnessAnalyzer.score(edgeStrength: 49) == 5.5)
+        #expect(PixelSharpnessAnalyzer.score(edgeStrength: 80) == 9)
+        #expect(PixelSharpnessAnalyzer.score(edgeStrength: 500) == 9)
+    }
+
     @Test func evidenceParserReadsCategoricalJSON() throws {
         let json = #"{"primary_subject":"goalkeeper","face_visibility":"profile","face_sharpness":"usable","subject_scale":"medium","action_moment":"peak","ball_relevance":"central","emotion":"visible","foreground_obstruction":"none","background_clutter":"minor","exposure_quality":"good","confidence":0.85,"observations":["Keeper is fully extended."]}"#
         let evidence = try EvidenceParser().parse("result:\n\(json)")

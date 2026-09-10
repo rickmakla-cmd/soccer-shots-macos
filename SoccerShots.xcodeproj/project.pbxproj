@@ -29,6 +29,7 @@
 		A03784884190D73B03A512D5 /* HuggingFace in Frameworks */ = {isa = PBXBuildFile; productRef = 30A8F24EE65D48160504FDE3 /* HuggingFace */; };
 		A36804D89A0AC484BC2A1CDB /* ScoringTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39BD500DB1D085B747D6F11C /* ScoringTests.swift */; };
 		A5225431052567D54E517C3F /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41006E62C7693E893347D293 /* SessionStore.swift */; };
+		B2225431052567D54E517C3F /* PixelSharpnessAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1115431052567D54E517C3F /* PixelSharpnessAnalyzer.swift */; };
 		BB1F871D0AE8B6B9C2F230F9 /* GeminiModelCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE5BD5375D2B2223BE24E345 /* GeminiModelCatalog.swift */; };
 		CEC03F5F26B676C13BB94FE0 /* MLXLMCommon in Frameworks */ = {isa = PBXBuildFile; productRef = 0A7A934081D8FAE584249630 /* MLXLMCommon */; };
 		D2EBCEE4C59CFE2213DA08F8 /* XMPBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F275C9C96C283933FE099B2 /* XMPBuilder.swift */; };
@@ -69,6 +70,7 @@
 		A6577327E68237AA90405DB4 /* GeminiBatchClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeminiBatchClient.swift; sourceTree = "<group>"; };
 		A8C01245233CF55D2DC6CED7 /* KeychainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStore.swift; sourceTree = "<group>"; };
 		AE5BD5375D2B2223BE24E345 /* GeminiModelCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeminiModelCatalog.swift; sourceTree = "<group>"; };
+		B1115431052567D54E517C3F /* PixelSharpnessAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PixelSharpnessAnalyzer.swift; sourceTree = "<group>"; };
 		C9EC7286D5D0DBA690CCD170 /* BenchmarkView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BenchmarkView.swift; sourceTree = "<group>"; };
 		E88ABA41F9C872F018FC59E4 /* BurstComparisonView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BurstComparisonView.swift; sourceTree = "<group>"; };
 		F34B3AE29CA1575CDE3E21D0 /* LocalEvidenceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalEvidenceService.swift; sourceTree = "<group>"; };
@@ -152,6 +154,7 @@
 				F5E18F282358CB830115ECFF /* LocalGemmaService.swift */,
 				FA53BEF00C0AF36D1091261C /* Models.swift */,
 				A11C599697F995C08899DE94 /* PhotoDetailView.swift */,
+				B1115431052567D54E517C3F /* PixelSharpnessAnalyzer.swift */,
 				A350693BADC0115A5AEC194D /* PhotoDiscovery.swift */,
 				5BA37925ECEFF4B91B2CB168 /* RootView.swift */,
 				158957D3C8A4875C23C1448E /* ScoreRecord.swift */,
@@ -279,6 +282,7 @@
 				E3A34E7502B1320F107B2E3B /* LocalGemmaService.swift in Sources */,
 				2F683D9286225A6A5644A005 /* Models.swift in Sources */,
 				092E6380AA78DEFD5F0B032F /* PhotoDetailView.swift in Sources */,
+				B2225431052567D54E517C3F /* PixelSharpnessAnalyzer.swift in Sources */,
 				5A8A7ED799347C96CAC90408 /* PhotoDiscovery.swift in Sources */,
 				446509772DBDF13A474F26C9 /* RootView.swift in Sources */,
 				4274DAFFFD189E5973023593 /* ScoreRecord.swift in Sources */,

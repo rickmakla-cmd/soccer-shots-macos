@@ -443,7 +443,7 @@ final class AppModel: ObservableObject {
                 )
                 let startedAt = Date()
                 do {
-                    let evidence = try await evidenceService.inspect(photoURL: candidate.fileURL) { [weak self] message in
+                    let inspection = try await evidenceService.inspect(photoURL: candidate.fileURL) { [weak self] message in
                         Task { @MainActor in self?.benchmarkProgress = .model(message) }
                     }
                     try Task.checkCancellation()
@@ -451,8 +451,12 @@ final class AppModel: ObservableObject {
                         modelID: candidateModelID,
                         scoredAt: Date(),
                         durationSeconds: Date().timeIntervalSince(startedAt),
-                        evidence: evidence,
-                        score: EvidenceRuleEngine().score(evidence)
+                        evidence: inspection.evidence,
+                        score: EvidenceRuleEngine().score(
+                            inspection.evidence,
+                            pixelSharpness: inspection.pixelSharpness
+                        ),
+                        pixelSharpness: inspection.pixelSharpness
                     )
                     guard let current = completedScores.firstIndex(where: { $0.fileURL.path == candidate.fileURL.path }) else {
                         continue

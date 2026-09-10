@@ -91,7 +91,13 @@ struct PhotoDetailView: View {
                         GridRow { Text("Face").foregroundStyle(.secondary); Text(result.evidence.faceVisibility.rawValue.replacingOccurrences(of: "_", with: " ").capitalized) }
                         GridRow { Text("Face detail").foregroundStyle(.secondary); Text(result.evidence.faceSharpness.rawValue.capitalized) }
                         if let value = result.evidence.subjectSharpness {
-                            GridRow { Text("Subject sharpness").foregroundStyle(.secondary); Text(value.rawValue.capitalized) }
+                            GridRow { Text("Model sharpness").foregroundStyle(.secondary); Text(value.rawValue.capitalized) }
+                        }
+                        if let value = result.pixelSharpness {
+                            GridRow {
+                                Text("Pixel sharpness").foregroundStyle(.secondary)
+                                Text(value, format: .number.precision(.fractionLength(1)))
+                            }
                         }
                         if let value = result.evidence.subjectOrientation {
                             GridRow { Text("Orientation").foregroundStyle(.secondary); Text(value.rawValue.replacingOccurrences(of: "_", with: " ").capitalized) }

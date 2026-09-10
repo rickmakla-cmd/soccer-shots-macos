@@ -6,6 +6,7 @@ import UniformTypeIdentifiers
 struct PreparedImage: @unchecked Sendable {
     let ciImage: CIImage
     let jpegData: Data
+    let pixelSharpness: Double?
 }
 
 struct ImagePreparer: Sendable {
@@ -52,7 +53,11 @@ struct ImagePreparer: Sendable {
                 "macOS produced a blank preview for \(url.lastPathComponent). It was not sent for scoring."
             )
         }
-        return .init(ciImage: image, jpegData: jpeg as Data)
+        return .init(
+            ciImage: image,
+            jpegData: jpeg as Data,
+            pixelSharpness: PixelSharpnessAnalyzer().score(thumbnail)
+        )
     }
 
     static func isEffectivelyBlack(_ image: CGImage) -> Bool {

@@ -7,6 +7,10 @@ import MLXVLM
 import Tokenizers
 
 actor LocalEvidenceService {
+    struct Inspection: Sendable {
+        let evidence: PhotoEvidence
+        let pixelSharpness: Double?
+    }
     private let modelID: String
     private let modelDirectory: URL
     private var container: ModelContainer?
@@ -17,7 +21,7 @@ actor LocalEvidenceService {
         self.modelDirectory = modelDirectory
     }
 
-    func inspect(photoURL: URL, progress: @Sendable @escaping (String) -> Void) async throws -> PhotoEvidence {
+    func inspect(photoURL: URL, progress: @Sendable @escaping (String) -> Void) async throws -> Inspection {
         try Task.checkCancellation()
         progress("Preparing full frame…")
         let prepared = try preparer.prepare(photoURL)
@@ -33,7 +37,10 @@ actor LocalEvidenceService {
             additionalContext: ["enable_thinking": false]
         )
         let response = try await session.respond(to: EvidencePrompt.text, images: images, videos: [], audios: [])
-        return try EvidenceParser().parse(response)
+        return .init(
+            evidence: try EvidenceParser().parse(response),
+            pixelSharpness: prepared.pixelSharpness
+        )
     }
 
     func verifyVision(progress: @Sendable @escaping (String) -> Void) async throws {

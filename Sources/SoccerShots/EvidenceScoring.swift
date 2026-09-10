@@ -151,6 +151,7 @@ struct EvidenceBenchmarkResult: Codable, Equatable, Sendable {
     let durationSeconds: Double
     let evidence: PhotoEvidence
     let score: PhotoScore
+    var pixelSharpness: Double? = nil
 }
 
 enum EvidencePrompt {
@@ -231,11 +232,11 @@ struct EvidenceParser: Sendable {
 }
 
 struct EvidenceRuleEngine: Sendable {
-    func score(_ evidence: PhotoEvidence) -> PhotoScore {
+    func score(_ evidence: PhotoEvidence, pixelSharpness: Double? = nil) -> PhotoScore {
         let effectiveFaceVisibility: FaceVisibility =
             evidence.subjectOrientation == .awayFromCamera ? .back : evidence.faceVisibility
         let subjectSharpness = evidence.subjectSharpness ?? evidence.faceSharpness
-        var sharpness = value(subjectSharpness)
+        var sharpness = pixelSharpness ?? value(subjectSharpness)
         if evidence.subjectScale == .tiny { sharpness = min(sharpness, 4) }
         if evidence.subjectScale == .distant { sharpness = min(sharpness, 6) }
 
@@ -257,12 +258,18 @@ struct EvidenceRuleEngine: Sendable {
         if evidence.subjectIsolation == .absent { composition = min(composition, 3) }
         composition = max(0, composition)
 
-        var convergence = convergence(action: action, emotion: evidence.emotion)
-        if face <= 4 || action <= 5 { convergence = min(convergence, 5) }
+        // Convergence describes the action/emotion peak. A hidden face is
+        // already represented by faceEyes and must not reduce it a second time.
+        let convergence = convergence(action: action, emotion: evidence.emotion)
 
         let faceCanBeJudged = [FaceVisibility.full, .threeQuarter, .profile].contains(effectiveFaceVisibility)
-        let autoReject = subjectSharpness == .blurred && evidence.subjectScale != .tiny
-            && (evidence.subjectSharpness != nil || faceCanBeJudged)
+        let autoReject: Bool
+        if let pixelSharpness {
+            autoReject = pixelSharpness <= 2.5 && evidence.subjectScale != .tiny
+        } else {
+            autoReject = subjectSharpness == .blurred && evidence.subjectScale != .tiny
+                && (evidence.subjectSharpness != nil || faceCanBeJudged)
+        }
         var result = PhotoScore(
             autoReject: autoReject,
             sharpness: sharpness,
