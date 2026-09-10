@@ -25,7 +25,9 @@ This repository is a Swift/SwiftUI rewrite of the validated Electron prototype a
 - Security-scoped folder bookmarks with a path fallback and a clean close-session action.
 - Responsive background RAW discovery during folder selection and session restoration, with cancellation support.
 - EXIF-time burst detection and a rapid comparison workspace with keyboard-driven frame/burst navigation.
+- Optional local AI burst ranking compares a numbered contact sheet of up to 12 evenly spaced frames and remains advisory until the user accepts its winner.
 - One-command burst winner selection that keeps the strongest frame and marks the remaining frames rejected.
+- Folder-scoped score reset clears cached scores, reviews, selections, and stored batch references without touching original photos or downloaded models.
 - Selected-photo export that copies originals and writes matching Lightroom-compatible XMP sidecars containing star ratings, guidance, and structured Camera Raw develop settings.
 - Collision-safe export naming: existing originals or sidecars are never overwritten.
 
@@ -48,6 +50,8 @@ xcodegen generate
 Then open `SoccerShots.xcodeproj`, choose the `SoccerShots` scheme, and run. The first score downloads `mlx-community/gemma-3-4b-it-4bit` into the app's Application Support model cache.
 
 Check the exact gallery photos to compare, then choose **Evidence Benchmark…**. SoccerShots snapshots that explicit selection and never substitutes a random or evenly spaced sample. Qwen3.5 4B and 9B are built-in candidates, with 9B selected by default. The model reports categorical visual evidence from one complete frame; fixed rules distinguish back-facing and obstructed faces, judge whole-subject sharpness separately, and cap routine action, loose framing, empty space, and weak subject isolation. Multi-image input is disabled because the pinned MLX Gemma 4 and Qwen processors can terminate the process while preparing differently shaped images. Agreement compares only the latest local evidence result with Gemini, preventing correlated legacy Gemma variants from receiving extra votes. In the photo detail window, assign your own Keep or Reject label to create persistent ground truth for later calibration. Evidence results and labels never replace the primary score, selection, rejection, or Gemini results.
+
+In **Compare Bursts**, choose **AI Rank Burst** to compare that burst with the selected Evidence Benchmark model. SoccerShots sends the local model one numbered contact sheet, shows the proposed winner and explanation, and changes no keep/reject decisions until **Use AI Winner** is chosen.
 
 ## Gemini batch scoring
 

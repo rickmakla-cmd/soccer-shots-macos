@@ -303,6 +303,45 @@ struct ScoringTests {
         #expect(score.sharpness == 4.5)
     }
 
+    @Test func pixelSharpnessCannotEraseSofterSubjectEvidence() {
+        let evidence = PhotoEvidence(
+            primarySubject: "foreground player", faceVisibility: .profile, faceSharpness: .usable,
+            subjectSharpness: .usable, subjectScale: .medium, subjectOrientation: .sideOn,
+            actionMoment: .strong, actionCue: .athleticMotion,
+            ballRelevance: .relevant, emotion: .neutral,
+            foregroundObstruction: .none, backgroundClutter: .minor,
+            emptySpace: .minor, framingQuality: .balanced, subjectIsolation: .adequate,
+            exposureQuality: .good, confidence: 0.9, observations: []
+        )
+
+        let score = EvidenceRuleEngine().score(evidence, pixelSharpness: 9)
+        #expect(score.sharpness == 7)
+    }
+
+    @Test func burstRankingParserRequiresACompleteUniqueRanking() throws {
+        let valid = try BurstRankingParser().parse(
+            #"{"winner_index":2,"ranking":[2,1,3],"reason":"frame 2 shows contact","observations":["ball on foot"]}"#,
+            frameCount: 3
+        )
+        #expect(valid.winnerIndex == 2)
+        #expect(valid.ranking == [2, 1, 3])
+
+        #expect(throws: SoccerShotsError.self) {
+            try BurstRankingParser().parse(
+                #"{"winner_index":2,"ranking":[2,2,3],"reason":"duplicate","observations":[]}"#,
+                frameCount: 3
+            )
+        }
+    }
+
+    @Test func burstCandidateSelectionIsDeterministicAndKeepsEndpoints() {
+        let selected = BurstRankingCandidates.select(Array(0..<20))
+        #expect(selected.count == 12)
+        #expect(selected.first == 0)
+        #expect(selected.last == 19)
+        #expect(selected == BurstRankingCandidates.select(Array(0..<20)))
+    }
+
     @Test func measuredPixelsControlBlurRejectionWhenAvailable() {
         let evidence = PhotoEvidence(
             primarySubject: "player", faceVisibility: .profile, faceSharpness: .blurred,

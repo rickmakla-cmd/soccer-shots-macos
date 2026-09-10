@@ -50,6 +50,7 @@ struct BurstComparisonView: View {
             return .handled
         }
         .onKeyPress("w") { chooseWinner(); return .handled }
+        .onDisappear { model.stopBurstRanking(unloadModel: true) }
     }
 
     private var header: some View {
@@ -90,7 +91,11 @@ struct BurstComparisonView: View {
                 ScrollView(.horizontal) {
                     HStack(alignment: .top, spacing: 16) {
                         ForEach(burst.photos) { photo in
-                            BurstFrameCard(photo: photo, isFocused: model.selectedPhotoID == photo.id)
+                            BurstFrameCard(
+                                photo: photo,
+                                isFocused: model.selectedPhotoID == photo.id,
+                                isAIRecommended: recommendation(for: burst)?.winnerID == photo.id
+                            )
                                 .frame(width: frameWidth(for: burst), height: 570)
                                 .contentShape(Rectangle())
                                 .onTapGesture { model.selectPhoto(photo.id) }
@@ -104,6 +109,14 @@ struct BurstComparisonView: View {
                             .font(.headline).monospacedDigit()
                     }
                     Spacer()
+                    if model.isRankingBurst {
+                        ProgressView().controlSize(.small)
+                        Text(model.burstRankingMessage).font(.caption).foregroundStyle(.secondary)
+                        Button("Cancel", role: .cancel) { model.stopBurstRanking() }
+                    } else {
+                        Button("AI Rank Burst") { model.rankBurst(burst) }
+                            .help("Compare up to 12 evenly spaced frames as one local contact sheet using the selected Evidence Benchmark model")
+                    }
                     Button("Toggle Keep") {
                         if let id = model.selectedPhotoID {
                             model.toggleExportSelection(for: id, modelContext: modelContext)
@@ -114,6 +127,25 @@ struct BurstComparisonView: View {
                         .disabled(selectedPhoto(in: burst) == nil)
                 }
                 .padding().background(.bar)
+                if let recommendation = recommendation(for: burst) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Label("AI recommends \(filename(for: recommendation.winnerID, in: burst))", systemImage: "sparkles")
+                                .font(.headline)
+                            Spacer()
+                            Button("Focus Recommendation") { model.selectPhoto(recommendation.winnerID) }
+                            Button("Use AI Winner") {
+                                model.markBurstWinner(recommendation.winnerID, in: burst, modelContext: modelContext)
+                            }
+                            .buttonStyle(.borderedProminent)
+                        }
+                        Text(recommendation.reason).font(.callout)
+                        Text("\(shortModelName(recommendation.modelID)) compared \(recommendation.candidateCount) of \(recommendation.totalFrameCount) frames. No selection changes until you use the winner.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal, 16).padding(.vertical, 10)
+                    .background(.blue.opacity(0.09))
+                }
             }
         }
     }
@@ -156,6 +188,21 @@ struct BurstComparisonView: View {
         model.markBurstWinner(winner.id, in: burst, modelContext: modelContext)
     }
 
+    private func recommendation(for burst: PhotoBurst) -> BurstRecommendation? {
+        guard model.burstRecommendation?.burstID == burst.id else { return nil }
+        return model.burstRecommendation
+    }
+
+    private func filename(for id: UUID, in burst: PhotoBurst) -> String {
+        burst.photos.first { $0.id == id }?.filename ?? "selected frame"
+    }
+
+    private func shortModelName(_ id: String) -> String {
+        if id.localizedCaseInsensitiveContains("gemma-4-12b") { return "Gemma 4 12B" }
+        if id.localizedCaseInsensitiveContains("qwen3.5-4b") { return "Qwen 3.5 4B" }
+        return id
+    }
+
     private func selectedPhoto(in burst: PhotoBurst) -> ScoredPhoto? {
         burst.photos.first { $0.id == model.selectedPhotoID }
     }
@@ -168,6 +215,7 @@ struct BurstComparisonView: View {
 private struct BurstFrameCard: View {
     let photo: ScoredPhoto
     let isFocused: Bool
+    let isAIRecommended: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -179,6 +227,12 @@ private struct BurstFrameCard: View {
                 Text(String(format: "%.1f", photo.score.composite))
                     .font(.title2.bold().monospacedDigit()).padding(8)
                     .background(.black.opacity(0.72), in: Capsule()).foregroundStyle(.white).padding(10)
+                if isAIRecommended {
+                    Label("AI pick", systemImage: "sparkles")
+                        .font(.caption.bold()).padding(7)
+                        .background(.blue, in: Capsule()).foregroundStyle(.white).padding(10)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                }
             }
             Text(photo.filename).font(.headline).lineLimit(1)
             HStack {

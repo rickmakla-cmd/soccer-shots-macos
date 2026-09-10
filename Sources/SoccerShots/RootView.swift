@@ -9,6 +9,7 @@ struct RootView: View {
     @State private var isShowingBurstComparison = false
     @State private var isShowingBenchmark = false
     @State private var isConfirmingGeminiBatch = false
+    @State private var isConfirmingScoreReset = false
 
     var body: some View {
         NavigationSplitView {
@@ -17,7 +18,7 @@ struct RootView: View {
                     Button("Choose Photo Folder…", systemImage: "folder") {
                         model.chooseFolder(modelContext: modelContext)
                     }
-                    .disabled(model.isLoadingFolder || model.isBenchmarking || model.isExporting)
+                    .disabled(model.isLoadingFolder || model.isBenchmarking || model.isExporting || model.isRankingBurst)
                     if let folder = model.selectedFolder {
                         LabeledContent("Folder", value: folder.lastPathComponent)
                         LabeledContent("Photos", value: "\(model.discoveredPhotos.count)")
@@ -26,7 +27,16 @@ struct RootView: View {
                         }
                         .disabled(model.photoBursts.isEmpty)
                         Button("Close Session", systemImage: "xmark.circle") { model.closeSession() }
-                            .disabled(model.isBenchmarking || model.isExporting)
+                            .disabled(model.isBenchmarking || model.isExporting || model.isRankingBurst)
+                        if !model.completedScores.isEmpty {
+                            Button("Reset Scoring Results…", systemImage: "arrow.counterclockwise", role: .destructive) {
+                                isConfirmingScoreReset = true
+                            }
+                            .disabled(
+                                model.isScoring || model.isBenchmarking || model.isDeepReviewing ||
+                                model.isGeminiBatchRunning || model.isExporting || model.isRankingBurst
+                            )
+                        }
                     }
                 }
                 if model.isLoadingFolder {
@@ -43,7 +53,7 @@ struct RootView: View {
                         Button("Score \(model.discoveredPhotos.count) Originals", systemImage: "sparkles") {
                             model.startScoring(modelContext: modelContext)
                         }
-                        .disabled(model.isScoring || model.isBenchmarking || model.isLoadingFolder)
+                        .disabled(model.isScoring || model.isBenchmarking || model.isLoadingFolder || model.isRankingBurst)
                         if model.isScoring {
                             Button("Cancel after current photo", role: .cancel) { model.cancelScoring() }
                         }
@@ -51,7 +61,7 @@ struct RootView: View {
                             Button("Evidence Benchmark…", systemImage: "arrow.left.arrow.right") {
                                 isShowingBenchmark = true
                             }
-                            .disabled(model.isScoring || model.isBenchmarking || model.isDeepReviewing)
+                            .disabled(model.isScoring || model.isBenchmarking || model.isDeepReviewing || model.isRankingBurst)
                         }
                         if model.isBenchmarking {
                             Button("Cancel A/B after current photo", role: .cancel) { model.cancelBenchmark() }
@@ -71,6 +81,7 @@ struct RootView: View {
                         .disabled(
                             model.selectedForExport.isEmpty || model.isScoring || model.isBenchmarking ||
                             model.isDeepReviewing || model.isLoadingFolder || model.isExporting
+                            || model.isRankingBurst
                         )
                         .help("Copy selected originals and create matching Lightroom XMP sidecars")
 
@@ -114,6 +125,7 @@ struct RootView: View {
                             .disabled(
                                 model.selectedForExport.isEmpty || model.isScoring || model.isBenchmarking ||
                                 model.isDeepReviewing || model.isExporting || model.isGeminiBatchRunning
+                                || model.isRankingBurst
                             )
                         } else if model.isGeminiBatchRunning {
                             ProgressView()
@@ -200,11 +212,23 @@ struct RootView: View {
         } message: {
             Text("This sends prepared copies and the full scoring rubric to Gemini. Google says Batch API requests cost 50% of standard requests and can take up to 24 hours. A paid Gemini API project is required.")
         }
+        .confirmationDialog(
+            "Reset all scoring results for this folder?",
+            isPresented: $isConfirmingScoreReset,
+            titleVisibility: .visible
+        ) {
+            Button("Reset Scores and Reviews", role: .destructive) {
+                model.resetCurrentFolderScores(modelContext: modelContext)
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This clears cached local scores, Gemini results, benchmarks, selections, manual decisions, and stored job references for this folder. Original photos and downloaded models are never deleted. Submitted cloud jobs cannot be cancelled by this reset.")
+        }
     }
 
     private var statusBar: some View {
         HStack {
-            if model.isScoring || model.isBenchmarking || model.isDeepReviewing || model.isGeminiBatchRunning || model.isLoadingFolder || model.isExporting {
+            if model.isScoring || model.isBenchmarking || model.isDeepReviewing || model.isGeminiBatchRunning || model.isLoadingFolder || model.isExporting || model.isRankingBurst {
                 ProgressView().controlSize(.small)
             }
             Text(statusMessage)
@@ -222,6 +246,7 @@ struct RootView: View {
         if model.isBenchmarking { return model.benchmarkProgress.message }
         if model.isDeepReviewing { return "Gemini is performing an explicit Deep Review…" }
         if model.isGeminiBatchRunning { return model.geminiBatchProgress.message }
+        if model.isRankingBurst { return model.burstRankingMessage }
         return model.progress.message
     }
 }

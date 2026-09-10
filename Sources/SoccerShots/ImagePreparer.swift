@@ -4,9 +4,9 @@ import ImageIO
 import UniformTypeIdentifiers
 
 struct PreparedImage: @unchecked Sendable {
+    let cgImage: CGImage
     let ciImage: CIImage
     let jpegData: Data
-    let pixelSharpness: Double?
 }
 
 struct ImagePreparer: Sendable {
@@ -54,9 +54,9 @@ struct ImagePreparer: Sendable {
             )
         }
         return .init(
+            cgImage: thumbnail,
             ciImage: image,
-            jpegData: jpeg as Data,
-            pixelSharpness: PixelSharpnessAnalyzer().score(thumbnail)
+            jpegData: jpeg as Data
         )
     }
 

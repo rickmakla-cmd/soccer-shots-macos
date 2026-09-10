@@ -9,8 +9,11 @@ import Vision
 struct PixelSharpnessAnalyzer: Sendable {
     private let sampleSize = 192
 
-    func score(_ image: CGImage) -> Double? {
-        guard let subject = primaryPersonCrop(in: image),
+    func score(
+        _ image: CGImage,
+        horizontalPosition: SubjectHorizontalPosition? = nil
+    ) -> Double? {
+        guard let subject = primaryPersonCrop(in: image, horizontalPosition: horizontalPosition),
               let pixels = grayscalePixels(from: subject) else { return nil }
 
         var gradients = [Double]()
@@ -44,14 +47,33 @@ struct PixelSharpnessAnalyzer: Sendable {
         return (2 + normalized * 7).rounded(toPlaces: 1)
     }
 
-    private func primaryPersonCrop(in image: CGImage) -> CGImage? {
+    private func primaryPersonCrop(
+        in image: CGImage,
+        horizontalPosition: SubjectHorizontalPosition?
+    ) -> CGImage? {
         let request = VNDetectHumanRectanglesRequest()
         let handler = VNImageRequestHandler(cgImage: image, orientation: .up)
         guard (try? handler.perform([request])) != nil,
-              let observation = request.results?.max(by: {
-                  $0.boundingBox.width * $0.boundingBox.height
-                      < $1.boundingBox.width * $1.boundingBox.height
-              }) else { return nil }
+              let observations = request.results, !observations.isEmpty else { return nil }
+
+        let observation: VNHumanObservation
+        if let targetX = targetX(for: horizontalPosition) {
+            // Prefer a substantial person in the region identified by the
+            // evidence model. Tiny background detections cannot win solely by
+            // being closest to the requested horizontal position.
+            let largestArea = observations.map { $0.boundingBox.width * $0.boundingBox.height }.max() ?? 0
+            let candidates = observations.filter {
+                $0.boundingBox.width * $0.boundingBox.height >= largestArea * 0.28
+            }
+            observation = (candidates.isEmpty ? observations : candidates).min {
+                abs($0.boundingBox.midX - targetX) < abs($1.boundingBox.midX - targetX)
+            }!
+        } else {
+            observation = observations.max {
+                $0.boundingBox.width * $0.boundingBox.height
+                    < $1.boundingBox.width * $1.boundingBox.height
+            }!
+        }
 
         let width = CGFloat(image.width)
         let height = CGFloat(image.height)
@@ -67,6 +89,15 @@ struct PixelSharpnessAnalyzer: Sendable {
             .integral
         guard rect.width >= 32, rect.height >= 32 else { return nil }
         return image.cropping(to: rect)
+    }
+
+    private func targetX(for position: SubjectHorizontalPosition?) -> CGFloat? {
+        switch position {
+        case .left: 1.0 / 6.0
+        case .center: 0.5
+        case .right: 5.0 / 6.0
+        case .indeterminate, nil: nil
+        }
     }
 
     private func grayscalePixels(from image: CGImage) -> [UInt8]? {

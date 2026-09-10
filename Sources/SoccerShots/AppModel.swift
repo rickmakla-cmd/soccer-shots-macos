@@ -13,6 +13,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var isDeepReviewing = false
     @Published private(set) var isGeminiBatchRunning = false
     @Published private(set) var isExporting = false
+    @Published private(set) var isRankingBurst = false
     @Published private(set) var isRestoringSession = false
     @Published private(set) var isLoadingFolder = false
     @Published var selectedPhotoID: UUID?
@@ -32,6 +33,8 @@ final class AppModel: ObservableObject {
     @Published private(set) var activeGeminiBatchJobs: [GeminiBatchJob] = []
     @Published private(set) var exportProgress: ExportProgress = .idle
     @Published private(set) var lastExportFolder: URL?
+    @Published private(set) var burstRankingMessage = "AI burst ranking ready"
+    @Published private(set) var burstRecommendation: BurstRecommendation?
     @Published var presentedError: String?
     @Published var presentedNotice: String?
 
@@ -45,6 +48,9 @@ final class AppModel: ObservableObject {
     private var folderLoadingTask: Task<Void, Never>?
     private var exportTask: Task<Void, Never>?
     private var geminiBatchTask: Task<Void, Never>?
+    private var burstRankingTask: Task<Void, Never>?
+    private var burstRankingService: LocalEvidenceService?
+    private var burstRankingServiceModelID: String?
     private var folderLoadID: UUID?
     private var activeFolderBookmark: Data?
     private var securityScopedFolderURL: URL?
@@ -156,6 +162,7 @@ final class AppModel: ObservableObject {
         benchmarkTask?.cancel()
         exportTask?.cancel()
         geminiBatchTask?.cancel()
+        burstRankingTask?.cancel()
         cancelFolderLoading()
         securityScopedFolderURL?.stopAccessingSecurityScopedResource()
         securityScopedFolderURL = nil
@@ -171,11 +178,46 @@ final class AppModel: ObservableObject {
         isGeminiBatchRunning = false
         exportProgress = .idle
         lastExportFolder = nil
+        burstRecommendation = nil
+        isRankingBurst = false
+        if let burstRankingService { Task { await burstRankingService.unload() } }
+        burstRankingService = nil
+        burstRankingServiceModelID = nil
         sessionStore.clear()
     }
 
+    func resetCurrentFolderScores(modelContext: ModelContext) {
+        guard let selectedFolder,
+              !isScoring, !isBenchmarking, !isDeepReviewing, !isGeminiBatchRunning,
+              !isLoadingFolder, !isExporting, !isRankingBurst else { return }
+        do {
+            let records = try modelContext.fetch(FetchDescriptor<ScoreRecord>())
+            for record in records where record.sessionFolder == selectedFolder.path {
+                modelContext.delete(record)
+            }
+            let folderPrefix = selectedFolder.path.hasSuffix("/") ? selectedFolder.path : selectedFolder.path + "/"
+            activeGeminiBatchJobs.removeAll { job in
+                job.photoPaths.contains { $0.hasPrefix(folderPrefix) }
+            }
+            try geminiBatchStore.save(activeGeminiBatchJobs)
+            try modelContext.save()
+            completedScores = []
+            selectedPhotoID = nil
+            galleryFilter = .all
+            gallerySort = .scoreDescending
+            progress = .idle
+            benchmarkProgress = .idle
+            geminiBatchProgress = .idle
+            burstRecommendation = nil
+            persistSession()
+            presentedNotice = "All cached scores and review results for \(selectedFolder.lastPathComponent) were cleared. Original photos and downloaded models were not changed."
+        } catch {
+            presentedError = "The scoring results could not be reset.\n\n\(error.localizedDescription)"
+        }
+    }
+
     func exportSelectedPhotos() {
-        guard !isScoring, !isBenchmarking, !isDeepReviewing, !isLoadingFolder, !isExporting else { return }
+        guard !isScoring, !isBenchmarking, !isDeepReviewing, !isLoadingFolder, !isExporting, !isRankingBurst else { return }
         let photos = selectedForExport
         guard !photos.isEmpty else {
             presentedError = "Select at least one photo before exporting."
@@ -244,7 +286,7 @@ final class AppModel: ObservableObject {
     }
 
     func startScoring(modelContext: ModelContext, isPostProcessed: Bool = false) {
-        guard !isScoring, !isBenchmarking, !isLoadingFolder, !isExporting,
+        guard !isScoring, !isBenchmarking, !isLoadingFolder, !isExporting, !isRankingBurst,
               let folder = selectedFolder, !discoveredPhotos.isEmpty else { return }
         isScoring = true
         completedScores = []
@@ -307,7 +349,7 @@ final class AppModel: ObservableObject {
     func cancelScoring() { scoringTask?.cancel() }
 
     func startBenchmark(sampleCount: Int, modelContext: ModelContext) {
-        guard !isScoring, !isBenchmarking, !isDeepReviewing, !isLoadingFolder, !isExporting else { return }
+        guard !isScoring, !isBenchmarking, !isDeepReviewing, !isLoadingFolder, !isExporting, !isRankingBurst else { return }
         let candidates = BenchmarkAnalysis.evenlySpaced(visiblePhotos, count: sampleCount)
         guard !candidates.isEmpty else { return }
         let candidateModelID = benchmarkModelID
@@ -400,7 +442,7 @@ final class AppModel: ObservableObject {
     func cancelBenchmark() { benchmarkTask?.cancel() }
 
     func startEvidenceBenchmark(modelContext: ModelContext) {
-        guard !isScoring, !isBenchmarking, !isDeepReviewing, !isLoadingFolder, !isExporting else { return }
+        guard !isScoring, !isBenchmarking, !isDeepReviewing, !isLoadingFolder, !isExporting, !isRankingBurst else { return }
         // Snapshot only the user's explicit gallery selection. The benchmark must
         // never substitute an automatic or evenly-spaced sample for these photos.
         let candidates = EvidenceBenchmarkAnalysis.selectedCandidates(from: completedScores)
@@ -517,6 +559,72 @@ final class AppModel: ObservableObject {
         do { try modelContext.save() }
         catch { presentedError = error.localizedDescription }
         persistSession()
+    }
+
+    func rankBurst(_ burst: PhotoBurst) {
+        guard !isScoring, !isBenchmarking, !isDeepReviewing, !isGeminiBatchRunning,
+              !isLoadingFolder, !isExporting, !isRankingBurst else { return }
+        let candidates = BurstRankingCandidates.select(burst.photos)
+        guard candidates.count >= 2 else { return }
+        let modelID = benchmarkModelID
+        isRankingBurst = true
+        burstRecommendation = nil
+        burstRankingMessage = "Preparing \(candidates.count) burst frames…"
+
+        burstRankingTask = Task { [weak self] in
+            guard let self else { return }
+            await scorer.unload()
+            if burstRankingServiceModelID != modelID {
+                if let previous = burstRankingService { await previous.unload() }
+                burstRankingService = LocalEvidenceService(modelID: modelID)
+                burstRankingServiceModelID = modelID
+            }
+            guard let service = burstRankingService else { return }
+            do {
+                let response = try await service.rankBurst(
+                    photoURLs: candidates.map(\.fileURL),
+                    filenames: candidates.map(\.filename)
+                ) { [weak self] message in
+                    Task { @MainActor in self?.burstRankingMessage = message }
+                }
+                try Task.checkCancellation()
+                let ranking = response.ranking.compactMap { index in
+                    candidates.indices.contains(index - 1) ? candidates[index - 1].id : nil
+                }
+                guard let winnerID = ranking.first else {
+                    throw SoccerShotsError.message("The burst model did not choose a valid winner.")
+                }
+                burstRecommendation = .init(
+                    burstID: burst.id,
+                    modelID: modelID,
+                    winnerID: winnerID,
+                    rankedPhotoIDs: ranking,
+                    reason: response.reason,
+                    observations: response.observations,
+                    candidateCount: candidates.count,
+                    totalFrameCount: burst.photos.count
+                )
+                burstRankingMessage = "AI recommendation ready"
+            } catch is CancellationError {
+                burstRankingMessage = "AI burst ranking cancelled"
+            } catch {
+                presentedError = "The burst could not be ranked.\n\n\(error.localizedDescription)"
+                burstRankingMessage = "AI burst ranking failed"
+            }
+            isRankingBurst = false
+            burstRankingTask = nil
+        }
+    }
+
+    func stopBurstRanking(unloadModel: Bool = false) {
+        burstRankingTask?.cancel()
+        burstRankingTask = nil
+        isRankingBurst = false
+        if unloadModel, let service = burstRankingService {
+            Task { await service.unload() }
+            burstRankingService = nil
+            burstRankingServiceModelID = nil
+        }
     }
 
     func toggleExportSelection(for id: UUID, modelContext: ModelContext) {
@@ -662,7 +770,7 @@ final class AppModel: ObservableObject {
     }
 
     func runDeepReview(for id: UUID, modelContext: ModelContext) {
-        guard !isDeepReviewing, !isGeminiBatchRunning, !isBenchmarking, !isExporting,
+        guard !isDeepReviewing, !isGeminiBatchRunning, !isBenchmarking, !isExporting, !isRankingBurst,
               let index = completedScores.firstIndex(where: { $0.id == id }),
               let apiKey = keychain.geminiAPIKey(), !apiKey.isEmpty else {
             isShowingSettings = true
@@ -712,7 +820,7 @@ final class AppModel: ObservableObject {
     }
 
     func startGeminiBatch(modelContext: ModelContext) {
-        guard !isGeminiBatchRunning, !isBenchmarking, !isExporting, !isScoring else { return }
+        guard !isGeminiBatchRunning, !isBenchmarking, !isExporting, !isScoring, !isRankingBurst else { return }
         let photos = selectedForExport
         guard !photos.isEmpty else {
             presentedError = "Select at least one photo for Gemini Batch Review."
@@ -789,7 +897,7 @@ final class AppModel: ObservableObject {
     }
 
     func resumeGeminiBatches(modelContext: ModelContext) {
-        guard !isGeminiBatchRunning, !activeGeminiBatchJobs.isEmpty else { return }
+        guard !isGeminiBatchRunning, !isRankingBurst, !activeGeminiBatchJobs.isEmpty else { return }
         guard let apiKey = keychain.geminiAPIKey(), !apiKey.isEmpty else {
             isShowingSettings = true
             return

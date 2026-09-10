@@ -15,6 +15,7 @@ actor LocalEvidenceService {
     private let modelDirectory: URL
     private var container: ModelContainer?
     private let preparer = ImagePreparer()
+    private let contactSheetBuilder = BurstContactSheetBuilder()
 
     init(modelID: String, modelDirectory: URL = ModelStorage.defaultDirectory) {
         self.modelID = modelID
@@ -37,9 +38,13 @@ actor LocalEvidenceService {
             additionalContext: ["enable_thinking": false]
         )
         let response = try await session.respond(to: EvidencePrompt.text, images: images, videos: [], audios: [])
+        let evidence = try EvidenceParser().parse(response)
         return .init(
-            evidence: try EvidenceParser().parse(response),
-            pixelSharpness: prepared.pixelSharpness
+            evidence: evidence,
+            pixelSharpness: PixelSharpnessAnalyzer().score(
+                prepared.cgImage,
+                horizontalPosition: evidence.subjectHorizontalPosition
+            )
         )
     }
 
@@ -65,6 +70,31 @@ actor LocalEvidenceService {
                 "The candidate loaded but its image check was inconclusive. Response: \(diagnostic)"
             )
         }
+    }
+
+    func rankBurst(
+        photoURLs: [URL],
+        filenames: [String],
+        progress: @Sendable @escaping (String) -> Void
+    ) async throws -> BurstRankingResponse {
+        guard photoURLs.count == filenames.count else {
+            throw SoccerShotsError.message("The burst frames and filenames did not match.")
+        }
+        try Task.checkCancellation()
+        progress("Building one \(photoURLs.count)-frame contact sheet…")
+        let sheet = try contactSheetBuilder.build(photoURLs: photoURLs)
+        let model = try await loadModel(progress: progress)
+        progress("Comparing burst moments…")
+        let session = ChatSession(
+            model,
+            generateParameters: .init(maxTokens: 700, temperature: 0),
+            additionalContext: ["enable_thinking": false]
+        )
+        let response = try await session.respond(
+            to: BurstRankingPrompt.text(filenames: filenames),
+            images: [.ciImage(sheet)], videos: [], audios: []
+        )
+        return try BurstRankingParser().parse(response, frameCount: photoURLs.count)
     }
 
     func unload() { container = nil }

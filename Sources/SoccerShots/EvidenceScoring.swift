@@ -62,6 +62,10 @@ enum SubjectOrientation: String, Codable, CaseIterable, Sendable {
     case indeterminate
 }
 
+enum SubjectHorizontalPosition: String, Codable, CaseIterable, Sendable {
+    case left, center, right, indeterminate
+}
+
 enum ActionMoment: String, Codable, CaseIterable, Sendable {
     case peak, strong, ordinary, idle, unclear
 }
@@ -111,6 +115,7 @@ struct PhotoEvidence: Codable, Equatable, Sendable {
     let subjectSharpness: FaceSharpness?
     let subjectScale: SubjectScale
     let subjectOrientation: SubjectOrientation?
+    var subjectHorizontalPosition: SubjectHorizontalPosition? = nil
     let actionMoment: ActionMoment
     let actionCue: ActionCue?
     let ballRelevance: BallRelevance
@@ -131,6 +136,7 @@ struct PhotoEvidence: Codable, Equatable, Sendable {
         case subjectSharpness = "subject_sharpness"
         case subjectScale = "subject_scale"
         case subjectOrientation = "subject_orientation"
+        case subjectHorizontalPosition = "subject_horizontal_position"
         case actionMoment = "action_moment"
         case actionCue = "action_cue"
         case ballRelevance = "ball_relevance"
@@ -155,11 +161,10 @@ struct EvidenceBenchmarkResult: Codable, Equatable, Sendable {
 }
 
 enum EvidencePrompt {
-    static let version = "evidence-v1"
+    static let version = "evidence-v2"
     static let text = #"""
     Inspect this youth soccer photograph as evidence. Do not assign quality scores and do not suggest edits.
-    Image 1 is the complete frame. Image 2, when present, is an automatically selected prominent-player crop.
-    Judge framing, empty space, clutter, and subject isolation from Image 1 only. Use Image 2 only to inspect the player and visible detail.
+    The image is the complete frame. Judge framing, empty space, clutter, subject isolation, and the primary subject from that frame.
 
     Identify the primary photographic subject: the person who is largest, sharpest, or carrying the visual story.
     Report only what is visibly supported. Use "indeterminate", "unclear", or "unseen" when pixels are insufficient.
@@ -175,6 +180,8 @@ enum EvidencePrompt {
       judge the primary subject's body/kit edges, independently of whether a face is visible
     subject_scale: close | medium | distant | tiny
     subject_orientation: toward_camera | side_on | away_from_camera | indeterminate
+    subject_horizontal_position: left | center | right | indeterminate
+      report the horizontal location of the primary subject's torso in the complete frame
     action_moment: peak | strong | ordinary | idle | unclear
       peak = exact ball contact, full extension, airborne contest, full-stretch save, or unmistakable celebration
       strong = clearly athletic movement immediately around a decisive contest, but not the exact peak
@@ -201,6 +208,7 @@ enum EvidencePrompt {
       "subject_sharpness": "allowed value",
       "subject_scale": "allowed value",
       "subject_orientation": "allowed value",
+      "subject_horizontal_position": "allowed value",
       "action_moment": "allowed value",
       "action_cue": "allowed value",
       "ball_relevance": "allowed value",
@@ -236,7 +244,10 @@ struct EvidenceRuleEngine: Sendable {
         let effectiveFaceVisibility: FaceVisibility =
             evidence.subjectOrientation == .awayFromCamera ? .back : evidence.faceVisibility
         let subjectSharpness = evidence.subjectSharpness ?? evidence.faceSharpness
-        var sharpness = pixelSharpness ?? value(subjectSharpness)
+        // A language model and a pixel measurement fail differently. Use the
+        // more conservative result so a sharp background player cannot erase
+        // the model's warning that the actual subject is soft.
+        var sharpness = min(pixelSharpness ?? 10, value(subjectSharpness))
         if evidence.subjectScale == .tiny { sharpness = min(sharpness, 4) }
         if evidence.subjectScale == .distant { sharpness = min(sharpness, 6) }
 
