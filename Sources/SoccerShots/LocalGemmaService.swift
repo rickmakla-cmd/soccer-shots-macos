@@ -27,7 +27,7 @@ actor LocalGemmaService {
     ) async throws -> PhotoScore {
         try Task.checkCancellation()
         progress("Preparing \(photoURL.lastPathComponent)…")
-        let image = try preparer.prepare(photoURL)
+        let image = try await preparer.prepare(photoURL)
         let model = try await loadModel(progress: progress)
         progress("Gemma is scoring \(photoURL.lastPathComponent)…")
         let session = ChatSession(model, generateParameters: .init(maxTokens: 2_400, temperature: 0))

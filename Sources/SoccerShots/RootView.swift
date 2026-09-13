@@ -622,25 +622,17 @@ private actor ThumbnailLoader {
         cache.totalCostLimit = 96 * 1_024 * 1_024
     }
 
-    func image(for url: URL, maxPixelSize: Int) -> NSImage? {
+    func image(for url: URL, maxPixelSize: Int) async -> NSImage? {
         guard !Task.isCancelled else { return nil }
         let key = "\(url.path)|\(maxPixelSize)" as NSString
         if let cached = cache.object(forKey: key) { return cached }
 
-        let image: NSImage? = autoreleasepool {
-            let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
-            guard let source = CGImageSourceCreateWithURL(url as CFURL, sourceOptions),
-                  let cg = CGImageSourceCreateThumbnailAtIndex(source, 0, [
-                    // Prefer the camera's embedded preview. `Always` forces a
-                    // full RAW render for every card and commonly produces the
-                    // all-black gallery seen under memory pressure.
-                    kCGImageSourceCreateThumbnailFromImageIfAbsent: true,
-                    kCGImageSourceCreateThumbnailWithTransform: true,
-                    kCGImageSourceThumbnailMaxPixelSize: maxPixelSize,
-                    kCGImageSourceShouldCacheImmediately: true
-                  ] as CFDictionary),
-                  !ImagePreparer.isEffectivelyBlack(cg) else { return nil }
-            return NSImage(cgImage: cg, size: .zero)
+        let image: NSImage?
+        do {
+            let cg = try await ImagePreparer.thumbnail(for: url, maxDimension: CGFloat(maxPixelSize))
+            image = NSImage(cgImage: cg, size: .zero)
+        } catch {
+            image = nil
         }
 
         guard !Task.isCancelled, let image else { return nil }

@@ -1,6 +1,7 @@
 import CoreImage
 import Foundation
 import ImageIO
+import QuickLookThumbnailing
 import UniformTypeIdentifiers
 
 struct PreparedImage: @unchecked Sendable {
@@ -16,22 +17,11 @@ struct ImagePreparer: Sendable {
         _ url: URL,
         maxDimension: CGFloat = Self.maxDimension,
         quality: Double = 0.9
-    ) throws -> PreparedImage {
-        guard maxDimension > 0,
-              let source = CGImageSourceCreateWithURL(
-                url as CFURL,
-                [kCGImageSourceShouldCache: false] as CFDictionary
-              ),
-              let thumbnail = CGImageSourceCreateThumbnailAtIndex(source, 0, [
-                // Prefer the camera's embedded JPEG preview. Some Canon CR3
-                // files decode correctly on screen but RAW-render as black.
-                kCGImageSourceCreateThumbnailFromImageIfAbsent: true,
-                kCGImageSourceCreateThumbnailWithTransform: true,
-                kCGImageSourceThumbnailMaxPixelSize: Int(maxDimension),
-                kCGImageSourceShouldCacheImmediately: true
-              ] as CFDictionary) else {
+    ) async throws -> PreparedImage {
+        guard maxDimension > 0 else {
             throw SoccerShotsError.message("macOS could not decode \(url.lastPathComponent).")
         }
+        let thumbnail = try await Self.thumbnail(for: url, maxDimension: maxDimension)
         // Render through ImageIO first. CIImage(contentsOf:) can expose a RAW
         // recipe that looks correct when consumed directly but encodes as black.
         let image = CIImage(cgImage: thumbnail)
@@ -58,6 +48,44 @@ struct ImagePreparer: Sendable {
             ciImage: image,
             jpegData: jpeg as Data
         )
+    }
+
+    /// Returns a verified, visible representation. ImageIO is fastest and normally
+    /// uses the camera's embedded JPEG. Quick Look is the system fallback for RAW
+    /// files whose ImageIO representation intermittently renders as an all-black frame.
+    static func thumbnail(for url: URL, maxDimension: CGFloat) async throws -> CGImage {
+        if let image = imageIOThumbnail(for: url, maxDimension: maxDimension),
+           !isEffectivelyBlack(image) {
+            return image
+        }
+
+        try Task.checkCancellation()
+        let request = QLThumbnailGenerator.Request(
+            fileAt: url,
+            size: CGSize(width: maxDimension, height: maxDimension),
+            scale: 1,
+            representationTypes: .thumbnail
+        )
+        let representation = try await QLThumbnailGenerator.shared.generateBestRepresentation(for: request)
+        guard !isEffectivelyBlack(representation.cgImage) else {
+            throw SoccerShotsError.message(
+                "macOS produced a blank preview for \(url.lastPathComponent). It was not sent for scoring."
+            )
+        }
+        return representation.cgImage
+    }
+
+    private static func imageIOThumbnail(for url: URL, maxDimension: CGFloat) -> CGImage? {
+        guard let source = CGImageSourceCreateWithURL(
+            url as CFURL,
+            [kCGImageSourceShouldCache: false] as CFDictionary
+        ) else { return nil }
+        return CGImageSourceCreateThumbnailAtIndex(source, 0, [
+            kCGImageSourceCreateThumbnailFromImageIfAbsent: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: Int(maxDimension),
+            kCGImageSourceShouldCacheImmediately: true
+        ] as CFDictionary)
     }
 
     static func isEffectivelyBlack(_ image: CGImage) -> Bool {

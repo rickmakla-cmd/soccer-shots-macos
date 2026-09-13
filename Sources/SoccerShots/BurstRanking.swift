@@ -94,7 +94,7 @@ struct BurstContactSheetBuilder: Sendable {
     private let cellSize = CGSize(width: 560, height: 380)
     private let gutter: CGFloat = 12
 
-    func build(photoURLs: [URL]) throws -> CIImage {
+    func build(photoURLs: [URL]) async throws -> CIImage {
         guard photoURLs.count >= 2 else {
             throw SoccerShotsError.message("At least two burst frames are required.")
         }
@@ -106,7 +106,7 @@ struct BurstContactSheetBuilder: Sendable {
 
         for (index, url) in photoURLs.enumerated() {
             try Task.checkCancellation()
-            let source = try preparer.prepare(url, maxDimension: 1_200, quality: 0.8).ciImage
+            let source = try await preparer.prepare(url, maxDimension: 1_200, quality: 0.8).ciImage
             let scale = min(cellSize.width / source.extent.width, cellSize.height / source.extent.height)
             let scaled = source.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
             let column = index % columns

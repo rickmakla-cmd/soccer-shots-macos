@@ -9,7 +9,7 @@ struct GeminiDeepReviewClient: Sendable {
     }
 
     func review(photoURL: URL, localScore: PhotoScore, apiKey: String) async throws -> DeepReview {
-        let prepared = try preparer.prepare(photoURL)
+        let prepared = try await preparer.prepare(photoURL)
         let scoreJSON = String(data: try JSONEncoder().encode(localScore), encoding: .utf8) ?? "{}"
         let prompt = Self.prompt(localScoreJSON: scoreJSON)
         let body: [String: Any] = [

@@ -72,7 +72,7 @@ struct GeminiBatchClient: Sendable {
     func prepare(
         photos: [ScoredPhoto],
         progress: (Int, Int, String) -> Void = { _, _, _ in }
-    ) throws -> [PreparedGeminiBatch] {
+    ) async throws -> [PreparedGeminiBatch] {
         var groups: [PreparedGeminiBatch] = []
         var requests: [[String: Any]] = []
         var paths: [String] = []
@@ -80,7 +80,7 @@ struct GeminiBatchClient: Sendable {
         for (offset, photo) in photos.enumerated() {
             try Task.checkCancellation()
             progress(offset + 1, photos.count, photo.filename)
-            let prepared = try preparer.prepare(photo.fileURL, maxDimension: 1_600, quality: 0.82)
+            let prepared = try await preparer.prepare(photo.fileURL, maxDimension: 1_600, quality: 0.82)
             let request = try Self.requestObject(jpegData: prepared.jpegData)
             let singleBody = try bodyData(requests: [request])
             guard singleBody.count <= Self.maximumBodyBytes else {
@@ -164,7 +164,7 @@ struct GeminiBatchClient: Sendable {
         for (index, path) in job.photoPaths.enumerated() {
             guard responses.indices.contains(index),
                   let text = responses[index].response?.candidates?.first?.content?.parts?.compactMap(\.text).first,
-                  let score = try? ScoringParser().parse(text) else {
+                  let score = try? ScoringParser().parse(text, enforceAutoReject: false) else {
                 failed.append(path)
                 continue
             }
@@ -177,7 +177,7 @@ struct GeminiBatchClient: Sendable {
         return [
             "request": [
                 "contents": [["role": "user", "parts": [
-                    ["text": ScoringPrompt.text],
+                    ["text": ScoringPrompt.geminiComparisonText],
                     ["inline_data": ["mime_type": "image/jpeg", "data": jpegData.base64EncodedString()]]
                 ]]],
                 "generationConfig": ["responseMimeType": "application/json", "temperature": 0.2]

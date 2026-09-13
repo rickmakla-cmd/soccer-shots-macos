@@ -37,6 +37,16 @@ struct ScoringTests {
         #expect(score.actionType == .unknown)
     }
 
+    @Test func advisoryScoringDoesNotTurnModelSharpnessIntoHardReject() throws {
+        let score = try ScoringParser().parse("""
+        {"auto_reject":true,"sharpness_score":2,"face_eyes_score":5,"peak_action_score":7,"ball_in_frame_score":7,"exposure_score":7,"composition_score":6,"convergence_score":6,"keep_recommendation":false,"action_type":"shot"}
+        """, enforceAutoReject: false)
+
+        #expect(!score.autoReject)
+        #expect(score.composite > 0)
+        #expect(!score.keepRecommendation)
+    }
+
     @Test func parserExtractsFencedJSONAndRepairsTrailingComma() throws {
         let score = try ScoringParser().parse("""
         Here is the result:

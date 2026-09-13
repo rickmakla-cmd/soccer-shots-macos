@@ -37,7 +37,7 @@ struct ScoringParser: Sendable {
         }
     }
 
-    func parse(_ raw: String) throws -> PhotoScore {
+    func parse(_ raw: String, enforceAutoReject: Bool = true) throws -> PhotoScore {
         guard let object = jsonObject(in: raw), let data = object.data(using: .utf8) else {
             throw SoccerShotsError.message("Local Gemma returned text without a JSON object.")
         }
@@ -46,7 +46,7 @@ struct ScoringParser: Sendable {
         catch { throw SoccerShotsError.message("Local Gemma returned unreadable score JSON: \(error.localizedDescription)") }
 
         let sharpness = payload.sharpness.map(clamped)
-        if payload.autoReject == true || (sharpness ?? 10) <= 2 {
+        if enforceAutoReject && (payload.autoReject == true || (sharpness ?? 10) <= 2) {
             return PhotoScore(
                 autoReject: true, sharpness: sharpness, faceEyes: nil, peakAction: nil,
                 ballInFrame: nil, exposure: nil, composition: nil, convergence: nil,

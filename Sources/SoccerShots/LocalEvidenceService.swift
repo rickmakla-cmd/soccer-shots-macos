@@ -25,7 +25,7 @@ actor LocalEvidenceService {
     func inspect(photoURL: URL, progress: @Sendable @escaping (String) -> Void) async throws -> Inspection {
         try Task.checkCancellation()
         progress("Preparing full frame…")
-        let prepared = try preparer.prepare(photoURL)
+        let prepared = try await preparer.prepare(photoURL)
         // The pinned Gemma 4 and Qwen 3.5 processors can both terminate the
         // process while combining differently shaped images. MLX reports these
         // failures as fatal assertions, so every local model receives one image.
@@ -82,7 +82,7 @@ actor LocalEvidenceService {
         }
         try Task.checkCancellation()
         progress("Building one \(photoURLs.count)-frame contact sheet…")
-        let sheet = try contactSheetBuilder.build(photoURLs: photoURLs)
+        let sheet = try await contactSheetBuilder.build(photoURLs: photoURLs)
         let model = try await loadModel(progress: progress)
         progress("Comparing burst moments…")
         let session = ChatSession(

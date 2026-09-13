@@ -836,7 +836,7 @@ final class AppModel: ObservableObject {
             guard let self else { return }
             do {
                 let preparation = Task.detached(priority: .userInitiated) {
-                    try GeminiBatchClient().prepare(photos: photos) { index, total, filename in
+                    try await GeminiBatchClient().prepare(photos: photos) { index, total, filename in
                         Task { @MainActor [weak self] in
                             self?.geminiBatchProgress = .preparing(index: index, total: total, filename: filename)
                         }
@@ -942,6 +942,7 @@ final class AppModel: ObservableObject {
                 case .pending, .running:
                     continue
                 case .succeeded:
+                    var refreshedScores = completedScores
                     for (path, score) in result.scoresByPath {
                         let scoredResult = ModelBenchmarkResult(
                             modelID: job.modelID,
@@ -949,8 +950,8 @@ final class AppModel: ObservableObject {
                             durationSeconds: 0,
                             score: score
                         )
-                        if let index = completedScores.firstIndex(where: { $0.fileURL.path == path }) {
-                            completedScores[index].geminiBatchResult = scoredResult
+                        if let index = refreshedScores.firstIndex(where: { $0.fileURL.path == path }) {
+                            refreshedScores[index].geminiBatchResult = scoredResult
                         }
                         if let record = try record(for: path, modelContext: modelContext) {
                             try record.setGeminiBatchResult(scoredResult)
@@ -960,6 +961,9 @@ final class AppModel: ObservableObject {
                     }
                     failed += result.failedPaths.count
                     try modelContext.save()
+                    // Publish one complete snapshot so every visible card refreshes
+                    // as soon as imported Gemini results have been persisted.
+                    completedScores = refreshedScores
                     finishedNames.insert(job.name)
                 case let .failed(message):
                     failed += job.photoPaths.count
