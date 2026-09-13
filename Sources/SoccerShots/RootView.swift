@@ -574,6 +574,7 @@ struct LocalThumbnail: View {
     var maxPixelSize: Int = 600
     var contentMode: ContentMode = .fill
     @State private var image: NSImage?
+    @State private var didFail = false
 
     var body: some View {
         Group {
@@ -583,17 +584,68 @@ struct LocalThumbnail: View {
                 } else {
                     Image(nsImage: image).resizable().scaledToFit()
                 }
-            } else { Rectangle().fill(.quaternary).overlay { ProgressView() } }
+            } else if didFail {
+                Rectangle().fill(.quaternary).overlay {
+                    Image(systemName: "photo.badge.exclamationmark")
+                        .font(.title2)
+                        .foregroundStyle(.secondary)
+                        .help("macOS could not render this photo's preview")
+                }
+            } else {
+                Rectangle().fill(.quaternary).overlay { ProgressView() }
+            }
         }
         .clipped()
-        .task(id: url) {
-            guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
-                  let cg = CGImageSourceCreateThumbnailAtIndex(source, 0, [
-                    kCGImageSourceCreateThumbnailFromImageAlways: true,
-                    kCGImageSourceCreateThumbnailWithTransform: true,
-                    kCGImageSourceThumbnailMaxPixelSize: maxPixelSize
-                  ] as CFDictionary) else { return }
-            image = NSImage(cgImage: cg, size: .zero)
+        .task(id: "\(url.path)|\(maxPixelSize)") {
+            image = nil
+            didFail = false
+            let loaded = await ThumbnailLoader.shared.image(for: url, maxPixelSize: maxPixelSize)
+            guard !Task.isCancelled else { return }
+            image = loaded
+            didFail = loaded == nil
         }
+    }
+}
+
+/// Serializes RAW thumbnail decoding away from the main actor. ImageIO can
+/// return blank frames when many full RAW renders are requested concurrently,
+/// which was easy to trigger by changing a gallery filter.
+private actor ThumbnailLoader {
+    static let shared = ThumbnailLoader()
+
+    private let cache = NSCache<NSString, NSImage>()
+
+    private init() {
+        // NSCache sheds images automatically under model or system memory
+        // pressure. This is enough to avoid repeatedly decoding visible cards.
+        cache.countLimit = 256
+        cache.totalCostLimit = 96 * 1_024 * 1_024
+    }
+
+    func image(for url: URL, maxPixelSize: Int) -> NSImage? {
+        guard !Task.isCancelled else { return nil }
+        let key = "\(url.path)|\(maxPixelSize)" as NSString
+        if let cached = cache.object(forKey: key) { return cached }
+
+        let image: NSImage? = autoreleasepool {
+            let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
+            guard let source = CGImageSourceCreateWithURL(url as CFURL, sourceOptions),
+                  let cg = CGImageSourceCreateThumbnailAtIndex(source, 0, [
+                    // Prefer the camera's embedded preview. `Always` forces a
+                    // full RAW render for every card and commonly produces the
+                    // all-black gallery seen under memory pressure.
+                    kCGImageSourceCreateThumbnailFromImageIfAbsent: true,
+                    kCGImageSourceCreateThumbnailWithTransform: true,
+                    kCGImageSourceThumbnailMaxPixelSize: maxPixelSize,
+                    kCGImageSourceShouldCacheImmediately: true
+                  ] as CFDictionary),
+                  !ImagePreparer.isEffectivelyBlack(cg) else { return nil }
+            return NSImage(cgImage: cg, size: .zero)
+        }
+
+        guard !Task.isCancelled, let image else { return nil }
+        let cost = max(1, Int(image.size.width * image.size.height * 4))
+        cache.setObject(image, forKey: key, cost: cost)
+        return image
     }
 }

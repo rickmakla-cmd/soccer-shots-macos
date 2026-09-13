@@ -9,7 +9,7 @@ This repository is a Swift/SwiftUI rewrite of the validated Electron prototype a
 - Native SwiftUI folder selection and photo-count confirmation.
 - Recursive discovery of the validated image/RAW formats.
 - RAW+JPEG basename deduplication, preferring RAW.
-- ImageIO/Core Image orientation correction and 2400-pixel scoring cap.
+- ImageIO/Core Image orientation correction, memory-bounded embedded RAW previews, and a 2400-pixel scoring cap.
 - In-process MLX VLM loading with visible download/inference progress.
 - Gemma 3 4B 4-bit scoring, defensive JSON parsing, and one repair attempt.
 - Explicitly selected-photo evidence benchmarking with recommended Qwen3.5 9B, optional Qwen3.5 4B, and experimental Gemma 4 candidates, deterministic scoring caps, per-model history, and cloud-versus-local agreement reporting.
