@@ -43,6 +43,7 @@ final class AppModel: ObservableObject {
     private let sessionStore = SessionStore()
     private let geminiBatchStore = GeminiBatchStore()
     private let geminiCatalog = GeminiModelCatalogClient()
+    private let scoreBackupStore = ScoreBackupStore()
     private var scoringTask: Task<Void, Never>?
     private var benchmarkTask: Task<Void, Never>?
     private var folderLoadingTask: Task<Void, Never>?
@@ -72,6 +73,10 @@ final class AppModel: ObservableObject {
         isGeminiConfigured = keychain.geminiAPIKey()?.isEmpty == false
         activeGeminiBatchJobs = geminiBatchStore.load()
         refreshModelDiskUsage()
+        presentedNotice = defaults.string(forKey: ScoreBackupStore.startupNoticeKey)
+        presentedError = defaults.string(forKey: ScoreBackupStore.startupErrorKey)
+        defaults.removeObject(forKey: ScoreBackupStore.startupNoticeKey)
+        defaults.removeObject(forKey: ScoreBackupStore.startupErrorKey)
     }
 
     var visiblePhotos: [ScoredPhoto] {
@@ -200,7 +205,9 @@ final class AppModel: ObservableObject {
                 job.photoPaths.contains { $0.hasPrefix(folderPrefix) }
             }
             try geminiBatchStore.save(activeGeminiBatchJobs)
-            try modelContext.save()
+            try saveScoreChanges(in: modelContext)
+            let remainingRecords = try modelContext.fetch(FetchDescriptor<ScoreRecord>())
+            try scoreBackupStore.replaceWithCurrentState(records: remainingRecords)
             completedScores = []
             selectedPhotoID = nil
             galleryFilter = .all
@@ -325,7 +332,7 @@ final class AppModel: ObservableObject {
                     )
                     if let stale = cachedByPath[photo.url.path] { modelContext.delete(stale) }
                     modelContext.insert(try ScoreRecord(photo: scored))
-                    try modelContext.save()
+                    try saveScoreChanges(in: modelContext)
                     completedScores.append(scored)
                     if selectedPhotoID == nil { selectedPhotoID = scored.id }
                     completed += 1
@@ -417,7 +424,7 @@ final class AppModel: ObservableObject {
                     completedScores[current].benchmarkResult = result
                     if let record = try? record(for: candidate.fileURL.path, modelContext: modelContext) {
                         try record.setBenchmarkResult(result)
-                        try modelContext.save()
+                        try saveScoreChanges(in: modelContext)
                     }
                     completed += 1
                 } catch is CancellationError {
@@ -507,7 +514,7 @@ final class AppModel: ObservableObject {
                     completedScores[current].evidenceBenchmarkResults.append(result)
                     if let record = try? record(for: candidate.fileURL.path, modelContext: modelContext) {
                         try record.setEvidenceBenchmarkResults(completedScores[current].evidenceBenchmarkResults)
-                        try modelContext.save()
+                        try saveScoreChanges(in: modelContext)
                     }
                     completed += 1
                 } catch is CancellationError {
@@ -556,7 +563,7 @@ final class AppModel: ObservableObject {
             record?.isManuallyRejected = !isWinner
         }
         selectedPhotoID = winnerID
-        do { try modelContext.save() }
+        do { try saveScoreChanges(in: modelContext) }
         catch { presentedError = error.localizedDescription }
         persistSession()
     }
@@ -663,7 +670,7 @@ final class AppModel: ObservableObject {
                     record.isSelectedForExport = selected
                 }
             }
-            try modelContext.save()
+            try saveScoreChanges(in: modelContext)
         } catch {
             presentedError = error.localizedDescription
         }
@@ -812,7 +819,7 @@ final class AppModel: ObservableObject {
                 completedScores[current].deepReview = review
                 if let record = try? record(for: photo.fileURL.path, modelContext: modelContext) {
                     try record.setDeepReview(review)
-                    try modelContext.save()
+                    try saveScoreChanges(in: modelContext)
                 }
             } catch { presentedError = error.localizedDescription }
             isDeepReviewing = false
@@ -960,7 +967,7 @@ final class AppModel: ObservableObject {
                         geminiBatchProgress = .importing(completed: completed, total: job.photoPaths.count)
                     }
                     failed += result.failedPaths.count
-                    try modelContext.save()
+                    try saveScoreChanges(in: modelContext)
                     // Publish one complete snapshot so every visible card refreshes
                     // as soon as imported Gemini results have been persisted.
                     completedScores = refreshedScores
@@ -992,13 +999,24 @@ final class AppModel: ObservableObject {
         guard let index = completedScores.firstIndex(where: { $0.id == id }) else { return }
         let record = try? record(for: completedScores[index].fileURL.path, modelContext: modelContext)
         mutation(&completedScores[index], record)
-        do { try modelContext.save() }
+        do { try saveScoreChanges(in: modelContext) }
         catch { presentedError = error.localizedDescription }
         persistSession()
     }
 
     private func persistGeminiModel(_ modelID: String) {
         UserDefaults.standard.set(modelID, forKey: "SoccerShots.geminiModelID")
+    }
+
+    private func saveScoreChanges(in modelContext: ModelContext) throws {
+        try modelContext.save()
+        do {
+            let records = try modelContext.fetch(FetchDescriptor<ScoreRecord>())
+            // An empty database is never allowed to overwrite the last good backup.
+            try scoreBackupStore.save(records: records)
+        } catch {
+            presentedError = "Scores were saved, but their safety backup could not be updated.\n\n\(error.localizedDescription)"
+        }
     }
 
     private func beginFolderLoad(

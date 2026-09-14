@@ -43,6 +43,26 @@ final class ScoreRecord {
             : try JSONEncoder().encode(photo.evidenceBenchmarkResults)
     }
 
+    init(snapshot: ScoreRecordSnapshot) {
+        filepath = snapshot.filepath
+        filename = snapshot.filename
+        fileSize = snapshot.fileSize
+        modificationDate = snapshot.modificationDate
+        sessionFolder = snapshot.sessionFolder
+        scoredAt = snapshot.scoredAt
+        scoringVersion = snapshot.scoringVersion
+        scoringEngine = snapshot.scoringEngine
+        isPostProcessed = snapshot.isPostProcessed
+        isManuallyRejected = snapshot.isManuallyRejected
+        isSelectedForExport = snapshot.isSelectedForExport
+        manualReviewLabelRaw = snapshot.manualReviewLabelRaw
+        scoreData = snapshot.scoreData
+        deepReviewData = snapshot.deepReviewData
+        benchmarkData = snapshot.benchmarkData
+        geminiBatchData = snapshot.geminiBatchData
+        evidenceBenchmarkData = snapshot.evidenceBenchmarkData
+    }
+
     var score: PhotoScore? { try? JSONDecoder().decode(PhotoScore.self, from: scoreData) }
     var deepReview: DeepReview? { deepReviewData.flatMap { try? JSONDecoder().decode(DeepReview.self, from: $0) } }
     var benchmarkResult: ModelBenchmarkResult? {
