@@ -223,6 +223,31 @@ struct ScoringTests {
         #expect(result.failedPaths.isEmpty)
     }
 
+    @Test func geminiBatchImportsAbbreviatedAutoRejectResponse() throws {
+        let job = GeminiBatchJob(
+            name: "batches/auto-reject", modelID: "gemini-3.1-pro-preview",
+            photoPaths: ["/game/BLUR.CR3"], submittedAt: .now
+        )
+        let scoreJSON = #"{"auto_reject":true,"sharpness_score":1,"reject_reason":"Focus miss"}"#
+        let encodedScore = try #require(String(data: JSONEncoder().encode(scoreJSON), encoding: .utf8))
+        let response = Data("""
+        {
+          "name": "batches/auto-reject",
+          "done": true,
+          "metadata": {"state": "BATCH_STATE_SUCCEEDED"},
+          "response": {"inlinedResponses": {"inlinedResponses": [
+            {"response": {"candidates": [{"content": {"parts": [{"text": \(encodedScore)}]}}]}}
+          ]}}
+        }
+        """.utf8)
+
+        let result = try GeminiBatchClient.parseStatus(response, job: job)
+        #expect(result.state == .succeeded)
+        #expect(result.scoresByPath["/game/BLUR.CR3"]?.autoReject == true)
+        #expect(result.scoresByPath["/game/BLUR.CR3"]?.composite == 0)
+        #expect(result.failedPaths.isEmpty)
+    }
+
     @Test func geminiBatchReadsResourceStatus() throws {
         let job = GeminiBatchJob(
             name: "batches/456", modelID: "gemini-3.7-flash",

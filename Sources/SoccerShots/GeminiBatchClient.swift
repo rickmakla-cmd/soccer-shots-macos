@@ -161,10 +161,12 @@ struct GeminiBatchClient: Sendable {
             .inlinedResponses?.inlinedResponses ?? []
         var scores: [String: PhotoScore] = [:]
         var failed: [String] = []
+        let parser = ScoringParser()
         for (index, path) in job.photoPaths.enumerated() {
             guard responses.indices.contains(index),
                   let text = responses[index].response?.candidates?.first?.content?.parts?.compactMap(\.text).first,
-                  let score = try? ScoringParser().parse(text, enforceAutoReject: false) else {
+                  let score = (try? parser.parse(text, enforceAutoReject: false))
+                    ?? (try? parser.parse(text, enforceAutoReject: true)) else {
                 failed.append(path)
                 continue
             }
