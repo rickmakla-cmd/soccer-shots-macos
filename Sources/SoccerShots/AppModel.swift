@@ -849,7 +849,7 @@ final class AppModel: ObservableObject {
                         }
                     }
                 }
-                let groups = try await withTaskCancellationHandler {
+                let preparedBatch = try await withTaskCancellationHandler {
                     try await preparation.value
                 } onCancel: {
                     preparation.cancel()
@@ -860,36 +860,31 @@ final class AppModel: ObservableObject {
                 guard !initialCandidates.isEmpty else {
                     throw SoccerShotsError.message("Gemini returned no current model suitable for discounted Batch scoring.")
                 }
-                var resolvedBatchModel: String?
-
-                for (offset, group) in groups.enumerated() {
-                    try Task.checkCancellation()
-                    geminiBatchProgress = .submitting(index: offset + 1, total: groups.count)
-                    let candidates = GeminiModelSelector.batchCandidates(
-                        preferred: resolvedBatchModel ?? geminiModelID, catalog: catalog
-                    )
-                    var submittedJob: GeminiBatchJob?
-                    var lastModelError: Error?
-                    for candidate in candidates {
-                        do {
-                            submittedJob = try await GeminiBatchClient().submit(group, modelID: candidate, apiKey: apiKey)
-                            resolvedBatchModel = candidate
-                            break
-                        } catch let error as GeminiHTTPError where error.definitelyRejectsModel {
-                            lastModelError = error
-                        }
+                try Task.checkCancellation()
+                geminiBatchProgress = .submitting(index: 1, total: 1)
+                let candidates = GeminiModelSelector.batchCandidates(preferred: geminiModelID, catalog: catalog)
+                var submittedJob: GeminiBatchJob?
+                var lastModelError: Error?
+                for candidate in candidates {
+                    do {
+                        submittedJob = try await GeminiBatchClient().submit(
+                            preparedBatch, modelID: candidate, apiKey: apiKey
+                        )
+                        break
+                    } catch let error as GeminiHTTPError where error.definitelyRejectsModel {
+                        lastModelError = error
                     }
-                    guard let job = submittedJob else {
-                        throw lastModelError ?? SoccerShotsError.message("No available Gemini model accepted the Batch request.")
-                    }
-                    if job.modelID != geminiModelID {
-                        geminiModelID = job.modelID
-                        persistGeminiModel(job.modelID)
-                        geminiModelStatus = "Batch automatically selected \(job.modelID)."
-                    }
-                    activeGeminiBatchJobs.append(job)
-                    try geminiBatchStore.save(activeGeminiBatchJobs)
                 }
+                guard let job = submittedJob else {
+                    throw lastModelError ?? SoccerShotsError.message("No available Gemini model accepted the Batch request.")
+                }
+                if job.modelID != geminiModelID {
+                    geminiModelID = job.modelID
+                    persistGeminiModel(job.modelID)
+                    geminiModelStatus = "Batch automatically selected \(job.modelID)."
+                }
+                activeGeminiBatchJobs.append(job)
+                try geminiBatchStore.save(activeGeminiBatchJobs)
                 try await pollGeminiBatches(apiKey: apiKey, modelContext: modelContext)
             } catch is CancellationError {
                 geminiBatchProgress = activeGeminiBatchJobs.isEmpty

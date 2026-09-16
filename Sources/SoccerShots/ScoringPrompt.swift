@@ -1,13 +1,6 @@
 enum ScoringPrompt {
     // Ported verbatim from the validated Electron prototype.
     static let version = "v2"
-    static let geminiComparisonText = text + #"""
-
-    GEMINI COMPARISON OVERRIDE:
-    This result is advisory and must contain all seven scoring dimensions. Never return early.
-    Always set auto_reject to false. A low sharpness score may lower the composite, but the app's
-    separately measured local image-quality check—not this response—owns hard rejection.
-    """#
     static let text = #"""
     You are an expert sports photography judge evaluating youth soccer game photos.
     Your job is to score each photo across 7 dimensions and return ONLY valid JSON.

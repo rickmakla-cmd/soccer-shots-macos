@@ -5,13 +5,19 @@ import Testing
 
 @Suite("Validated SoccerShots rules")
 struct ScoringTests {
-    @Test func preparedImageDetectsBlankFrames() {
-        let context = CIContext(options: [.cacheIntermediates: false])
-        let extent = CGRect(x: 0, y: 0, width: 32, height: 32)
-        let black = CIImage(color: .black).cropped(to: extent)
-        let visible = CIImage(color: .init(red: 0.1, green: 0.5, blue: 0.2)).cropped(to: extent)
-        let blackCG = context.createCGImage(black, from: extent)!
-        let visibleCG = context.createCGImage(visible, from: extent)!
+    @Test func preparedImageDetectsBlankFrames() throws {
+        func solidImage(red: CGFloat, green: CGFloat, blue: CGFloat) throws -> CGImage {
+            let context = try #require(CGContext(
+                data: nil, width: 32, height: 32, bitsPerComponent: 8, bytesPerRow: 32 * 4,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            ))
+            context.setFillColor(red: red, green: green, blue: blue, alpha: 1)
+            context.fill(CGRect(x: 0, y: 0, width: 32, height: 32))
+            return try #require(context.makeImage())
+        }
+        let blackCG = try solidImage(red: 0, green: 0, blue: 0)
+        let visibleCG = try solidImage(red: 0.1, green: 0.5, blue: 0.2)
 
         #expect(ImagePreparer.isEffectivelyBlack(blackCG))
         #expect(!ImagePreparer.isEffectivelyBlack(visibleCG))
@@ -189,6 +195,15 @@ struct ScoringTests {
         #expect(store.load() == [job])
     }
 
+    @Test func geminiBatchJobRestoresJobsSavedBeforeFileInputs() throws {
+        let data = Data(#"[{"name":"batches/old","modelID":"gemini-3.1-pro-preview","photoPaths":["/game/IMG.CR3"],"submittedAt":100}]"#.utf8)
+        let jobs = try JSONDecoder().decode([GeminiBatchJob].self, from: data)
+
+        #expect(jobs.count == 1)
+        #expect(jobs[0].name == "batches/old")
+        #expect(jobs[0].requestKeys == nil)
+    }
+
     @Test func geminiBatchRequestOmitsLocalFilesystemDetails() throws {
         let request = try GeminiBatchClient.requestObject(jpegData: Data([0x01, 0x02]))
         let encoded = try JSONSerialization.data(withJSONObject: request)
@@ -197,6 +212,60 @@ struct ScoringTests {
         #expect(!text.contains("photoPath"))
         #expect(!text.contains("/Users/"))
         #expect(!text.contains("/Volumes/"))
+    }
+
+    @Test func geminiBatchBuildsOneKeyedJSONLInputFile() throws {
+        let requests = [
+            try GeminiBatchClient.requestObject(jpegData: Data([0x01]), key: "photo-0"),
+            try GeminiBatchClient.requestObject(jpegData: Data([0x02]), key: "photo-1")
+        ]
+
+        let data = try GeminiBatchClient.jsonLinesData(requests: requests)
+        let lines = data.split(separator: 0x0A)
+        #expect(lines.count == 2)
+        let first = try #require(JSONSerialization.jsonObject(with: Data(lines[0])) as? [String: Any])
+        let second = try #require(JSONSerialization.jsonObject(with: Data(lines[1])) as? [String: Any])
+        #expect(first["key"] as? String == "photo-0")
+        #expect(second["key"] as? String == "photo-1")
+        #expect(first["request"] != nil)
+        #expect(first["metadata"] == nil)
+    }
+
+    @Test func geminiFileBatchSubmissionReferencesUploadedFile() throws {
+        let data = try GeminiBatchClient.fileBatchBodyData(fileName: "files/soccer-input")
+        let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let batch = try #require(object["batch"] as? [String: Any])
+        let input = try #require(batch["input_config"] as? [String: Any])
+        #expect(input["file_name"] as? String == "files/soccer-input")
+        #expect(input["requests"] == nil)
+    }
+
+    @Test func geminiFileBatchMapsOutOfOrderResultsByKey() throws {
+        let job = GeminiBatchJob(
+            name: "batches/file", modelID: "gemini-3.1-pro-preview",
+            photoPaths: ["/game/FAILED.CR3", "/game/SCORED.CR3"], submittedAt: .now,
+            requestKeys: ["photo-0", "photo-1"]
+        )
+        let scoreJSON = #"{"auto_reject":false,"sharpness_score":8,"face_eyes_score":8,"peak_action_score":9,"ball_in_frame_score":7,"exposure_score":7,"composition_score":8,"convergence_score":9,"lightroom_suggestions":[],"develop_settings":{},"keep_recommendation":true}"#
+        let encodedScore = try #require(String(data: JSONEncoder().encode(scoreJSON), encoding: .utf8))
+        let response = Data("""
+        {"key":"photo-1","response":{"candidates":[{"content":{"parts":[{"text":\(encodedScore)}]}}]}}
+        {"key":"photo-0","error":{"message":"image rejected"}}
+        """.utf8)
+
+        let result = try GeminiBatchClient.parseFileResults(response, job: job)
+        #expect(result.state == .succeeded)
+        #expect(result.scoresByPath["/game/SCORED.CR3"]?.composite == 8.2)
+        #expect(result.scoresByPath["/game/FAILED.CR3"] == nil)
+        #expect(result.failedPaths == ["/game/FAILED.CR3"])
+    }
+
+    @Test func geminiFileBatchFindsResultFileAcrossDocumentedStatusShapes() throws {
+        let resource = Data(#"{"state":"JOB_STATE_SUCCEEDED","dest":{"fileName":"files/resource-output"}}"#.utf8)
+        let operation = Data(#"{"metadata":{"state":"JOB_STATE_SUCCEEDED"},"response":{"responsesFile":"files/operation-output"}}"#.utf8)
+
+        #expect(try GeminiBatchClient.outputFileName(in: resource) == "files/resource-output")
+        #expect(try GeminiBatchClient.outputFileName(in: operation) == "files/operation-output")
     }
 
     @Test func geminiBatchReadsLongRunningOperationStatus() throws {
