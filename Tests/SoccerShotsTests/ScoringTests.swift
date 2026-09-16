@@ -5,6 +5,13 @@ import Testing
 
 @Suite("Validated SoccerShots rules")
 struct ScoringTests {
+    @Test func qwen9IsThePrimaryDefaultAndOnlyTheLegacyDefaultMigrates() {
+        #expect(LocalEvidenceService.resolvedPrimaryModelID(savedModelID: nil) == LocalEvidenceService.defaultPrimaryModelID)
+        #expect(LocalEvidenceService.resolvedPrimaryModelID(savedModelID: "") == LocalEvidenceService.defaultPrimaryModelID)
+        #expect(LocalEvidenceService.resolvedPrimaryModelID(savedModelID: LocalEvidenceService.legacyPrimaryModelID) == LocalEvidenceService.defaultPrimaryModelID)
+        #expect(LocalEvidenceService.resolvedPrimaryModelID(savedModelID: "custom/model") == "custom/model")
+    }
+
     @Test func preparedImageDetectsBlankFrames() throws {
         func solidImage(red: CGFloat, green: CGFloat, blue: CGFloat) throws -> CGImage {
             let context = try #require(CGContext(
@@ -134,10 +141,15 @@ struct ScoringTests {
         #expect(fileManager.fileExists(atPath: destination.appendingPathComponent("IMG_0042-2.xmp").path))
     }
 
-    @Test func galleryFiltersRespectManualRejectAndScoreBands() {
-        let photo = samplePhoto(composite: 7.4)
+    @Test func galleryFiltersRespectModelRecommendationAndManualReject() {
+        var photo = samplePhoto(composite: 7.4)
+        #expect(GalleryFilter.keepers.includes(photo))
+        #expect(!GalleryFilter.nearMiss.includes(photo))
+
+        photo.score.keepRecommendation = false
         #expect(GalleryFilter.nearMiss.includes(photo))
         #expect(!GalleryFilter.keepers.includes(photo))
+
         var rejected = photo
         rejected.isManuallyRejected = true
         #expect(GalleryFilter.manuallyRejected.includes(rejected))

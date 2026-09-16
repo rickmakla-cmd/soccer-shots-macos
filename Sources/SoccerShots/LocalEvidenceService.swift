@@ -7,6 +7,17 @@ import MLXVLM
 import Tokenizers
 
 actor LocalEvidenceService {
+    static let defaultPrimaryModelID = "mlx-community/Qwen3.5-9B-MLX-4bit"
+    static let legacyPrimaryModelID = "mlx-community/gemma-3-4b-it-4bit"
+
+    static func resolvedPrimaryModelID(savedModelID: String?) -> String {
+        guard let savedModelID, !savedModelID.isEmpty,
+              savedModelID != legacyPrimaryModelID else {
+            return defaultPrimaryModelID
+        }
+        return savedModelID
+    }
+
     struct Inspection: Sendable {
         let evidence: PhotoEvidence
         let pixelSharpness: Double?

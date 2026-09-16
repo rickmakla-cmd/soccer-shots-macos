@@ -38,7 +38,7 @@ final class AppModel: ObservableObject {
     @Published var presentedError: String?
     @Published var presentedNotice: String?
 
-    private var scorer: LocalGemmaService
+    private var scorer: LocalEvidenceService
     private let keychain = KeychainStore()
     private let sessionStore = SessionStore()
     private let geminiBatchStore = GeminiBatchStore()
@@ -59,7 +59,11 @@ final class AppModel: ObservableObject {
 
     init() {
         let defaults = UserDefaults.standard
-        let localID = defaults.string(forKey: "SoccerShots.localModelID") ?? LocalGemmaService.defaultModelID
+        let savedLocalID = defaults.string(forKey: "SoccerShots.localModelID")
+        let localID = LocalEvidenceService.resolvedPrimaryModelID(savedModelID: savedLocalID)
+        if localID != savedLocalID {
+            defaults.set(localID, forKey: "SoccerShots.localModelID")
+        }
         localModelID = localID
         let savedBenchmark = defaults.string(forKey: "SoccerShots.benchmarkModelID")
         benchmarkModelID = savedBenchmark == nil || savedBenchmark == "mlx-community/gemma-4-e4b-it-8bit"
@@ -69,7 +73,7 @@ final class AppModel: ObservableObject {
         geminiModelID = savedGemini == nil || savedGemini == "gemini-2.5-pro"
             ? "gemini-3.1-pro-preview"
             : savedGemini!
-        scorer = LocalGemmaService(modelID: localID)
+        scorer = LocalEvidenceService(modelID: localID)
         isGeminiConfigured = keychain.geminiAPIKey()?.isEmpty == false
         activeGeminiBatchJobs = geminiBatchStore.load()
         refreshModelDiskUsage()
@@ -94,6 +98,11 @@ final class AppModel: ObservableObject {
     var selectedPhoto: ScoredPhoto? {
         guard let selectedPhotoID else { return nil }
         return completedScores.first { $0.id == selectedPhotoID }
+    }
+
+    var localModelDisplayName: String {
+        if localModelID.localizedCaseInsensitiveContains("qwen3.5-9b") { return "Qwen 3.5 9B local" }
+        return localModelID
     }
 
     var photoBursts: [PhotoBurst] {
@@ -318,15 +327,29 @@ final class AppModel: ObservableObject {
                 }
                 progress = .preparing(index: index, total: photos.count, filename: photo.url.lastPathComponent)
                 do {
-                    let score = try await scorer.score(photoURL: photo.url) { [weak self] message in
+                    let startedAt = Date()
+                    let inspection = try await scorer.inspect(photoURL: photo.url) { [weak self] message in
                         Task { @MainActor in self?.progress = .model(message) }
                     }
+                    let score = EvidenceRuleEngine().score(
+                        inspection.evidence,
+                        pixelSharpness: inspection.pixelSharpness
+                    )
+                    let primaryEvidence = EvidenceBenchmarkResult(
+                        modelID: localModelID,
+                        scoredAt: Date(),
+                        durationSeconds: Date().timeIntervalSince(startedAt),
+                        evidence: inspection.evidence,
+                        score: score,
+                        pixelSharpness: inspection.pixelSharpness
+                    )
                     guard !Task.isCancelled else { break }
                     let scored = ScoredPhoto(
                         id: UUID(), fileURL: photo.url, filename: photo.url.lastPathComponent,
                         fileSize: photo.fileSize, modificationDate: photo.modificationDate,
-                        sessionFolder: folder, scoredAt: Date(), scoringVersion: ScoringPrompt.version,
-                        scoringEngine: "mlx:\(localModelID)", score: score, deepReview: nil,
+                        sessionFolder: folder, scoredAt: Date(), scoringVersion: EvidencePrompt.version,
+                        scoringEngine: "mlx-evidence:\(localModelID)", score: score, deepReview: nil,
+                        evidenceBenchmarkResults: [primaryEvidence],
                         isPostProcessed: isPostProcessed, isManuallyRejected: false,
                         isSelectedForExport: false
                     )
@@ -749,7 +772,7 @@ final class AppModel: ObservableObject {
         guard !trimmed.isEmpty, trimmed != localModelID else { return }
         localModelID = trimmed
         UserDefaults.standard.set(trimmed, forKey: "SoccerShots.localModelID")
-        scorer = LocalGemmaService(modelID: trimmed)
+        scorer = LocalEvidenceService(modelID: trimmed)
     }
 
     func updateBenchmarkModelID(_ modelID: String) {

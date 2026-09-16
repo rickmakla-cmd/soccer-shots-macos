@@ -18,10 +18,17 @@ enum GalleryFilter: String, Codable, CaseIterable, Identifiable, Sendable {
     func includes(_ photo: ScoredPhoto) -> Bool {
         switch self {
         case .all: true
-        case .keepers: !photo.isManuallyRejected && photo.score.composite >= 8
-        case .nearMiss: !photo.isManuallyRejected && (7..<8).contains(photo.score.composite)
-        case .review: !photo.isManuallyRejected && (5..<7).contains(photo.score.composite)
-        case .rejects: !photo.isManuallyRejected && photo.score.composite < 5
+        case .keepers:
+            !photo.isManuallyRejected && photo.score.keepRecommendation
+        case .nearMiss:
+            !photo.isManuallyRejected && !photo.score.keepRecommendation
+                && !photo.score.autoReject && photo.score.composite >= 5.5
+        case .review:
+            !photo.isManuallyRejected && !photo.score.keepRecommendation
+                && !photo.score.autoReject && (3..<5.5).contains(photo.score.composite)
+        case .rejects:
+            !photo.isManuallyRejected && !photo.score.keepRecommendation
+                && (photo.score.autoReject || photo.score.composite < 3)
         case .manuallyRejected: photo.isManuallyRejected
         }
     }

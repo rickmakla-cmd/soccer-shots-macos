@@ -16,11 +16,11 @@ struct SettingsView: View {
             }.padding()
 
             Form {
-                Section("Local Gemma — primary scoring") {
+                Section("Local Qwen — primary evidence scoring") {
                     TextField("Hugging Face model ID", text: $localModelID)
                     LabeledContent("Model storage", value: ModelStorage.defaultDirectory.path)
                     LabeledContent("Disk used", value: diskUsage)
-                    Text("The model downloads into Application Support on the first score. Scoring stays inside this app and works offline after download.")
+                    Text("Qwen inspects visible evidence in each complete frame, then SoccerShots applies the local scoring rules. The model downloads on the first score and works offline afterward.")
                         .font(.callout).foregroundStyle(.secondary)
                     HStack {
                         Button("Apply model ID") { model.updateLocalModelID(localModelID) }
@@ -59,13 +59,13 @@ struct SettingsView: View {
                     if let status = model.geminiModelStatus {
                         Text(status).font(.caption).foregroundStyle(.secondary)
                     }
-                    Text("Deep Review uses Google’s current Interactions API with the preferred model. Batch Scoring sends only selected photos through Google’s discounted asynchronous Batch API and automatically chooses a compatible current model when the preferred model is unavailable. Neither result replaces Gemma’s local primary score.")
+                    Text("Deep Review uses Google’s current Interactions API with the preferred model. Batch Scoring sends only selected photos through Google’s discounted asynchronous Batch API and automatically chooses a compatible current model when the preferred model is unavailable. Neither result replaces Qwen’s local primary score.")
                         .font(.callout).foregroundStyle(.secondary)
                 }
 
                 Section("About") {
-                    LabeledContent("Scoring rubric", value: ScoringPrompt.version)
-                    LabeledContent("Primary engine", value: "Gemma via MLX Swift")
+                    LabeledContent("Scoring rubric", value: EvidencePrompt.version)
+                    LabeledContent("Primary engine", value: "\(model.localModelDisplayName) evidence via MLX Swift")
                     LabeledContent("Minimum system", value: "macOS 15 · Apple silicon")
                 }
             }

@@ -146,7 +146,7 @@ struct RootView: View {
                 }
                 Section("Configuration") {
                     Button("Settings…", systemImage: "gearshape") { model.isShowingSettings = true }
-                    LabeledContent("Primary", value: "Gemma local")
+                    LabeledContent("Primary", value: model.localModelDisplayName)
                     LabeledContent("Deep Review", value: model.isGeminiConfigured ? "Configured" : "Optional")
                 }
             }
@@ -234,7 +234,7 @@ struct RootView: View {
             Text(statusMessage)
                 .font(.callout).foregroundStyle(.secondary)
             Spacer()
-            Text("Gemma local · offline primary").font(.caption).foregroundStyle(.tertiary)
+            Text("\(model.localModelDisplayName) · evidence · offline primary").font(.caption).foregroundStyle(.tertiary)
         }
         .padding(.horizontal, 16).padding(.vertical, 10)
         .background(.bar)
