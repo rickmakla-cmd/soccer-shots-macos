@@ -33,7 +33,7 @@ struct SoccerShotsApp: App {
             }
             if restored > 0 {
                 UserDefaults.standard.set(
-                    "Recovered \(restored.formatted()) saved score records after the database opened empty.",
+                    "Recovered \(restored.formatted()) saved score-cache records after repairing the database. No photo folder or session was reopened; choose a folder to start new work.",
                     forKey: ScoreBackupStore.startupNoticeKey
                 )
             }

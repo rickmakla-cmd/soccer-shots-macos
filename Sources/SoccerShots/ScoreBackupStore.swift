@@ -183,14 +183,10 @@ struct ScoreBackupStore {
             let snapshotName = "\(formatter.string(from: Date()))-\(UUID().uuidString)"
             let destination = root.appendingPathComponent(snapshotName, isDirectory: true)
             try fileManager.createDirectory(at: destination, withIntermediateDirectories: true)
-            for suffix in ["", "-wal", "-shm"] {
-                let source = URL(fileURLWithPath: storeURL.path + suffix)
-                guard fileManager.fileExists(atPath: source.path) else { continue }
-                try fileManager.copyItem(
-                    at: source,
-                    to: destination.appendingPathComponent("default.store" + suffix)
-                )
-            }
+            try createRawStoreSnapshot(
+                from: storeURL,
+                to: destination.appendingPathComponent("default.store")
+            )
 
             let snapshots = try fileManager.contentsOfDirectory(
                 at: root,
@@ -205,6 +201,49 @@ struct ScoreBackupStore {
                 "SoccerShots could not make its pre-launch database safety copy: \(error.localizedDescription)",
                 forKey: startupErrorKey
             )
+        }
+    }
+
+    /// Uses SQLite's online backup API so the snapshot is a consistent database even
+    /// when another app instance is checkpointing or replacing transient WAL files.
+    /// Copying `default.store`, `-wal`, and `-shm` separately has a time-of-check race.
+    static func createRawStoreSnapshot(from sourceURL: URL, to destinationURL: URL) throws {
+        var sourceDatabase: OpaquePointer?
+        let sourceResult = sqlite3_open_v2(
+            sourceURL.path,
+            &sourceDatabase,
+            SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX,
+            nil
+        )
+        guard sourceResult == SQLITE_OK, let sourceDatabase else {
+            defer { if sourceDatabase != nil { sqlite3_close(sourceDatabase) } }
+            throw sqliteError(sourceDatabase, fallback: "The existing score database could not be opened for backup.")
+        }
+        defer { sqlite3_close(sourceDatabase) }
+
+        var destinationDatabase: OpaquePointer?
+        let destinationResult = sqlite3_open_v2(
+            destinationURL.path,
+            &destinationDatabase,
+            SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX,
+            nil
+        )
+        guard destinationResult == SQLITE_OK, let destinationDatabase else {
+            defer { if destinationDatabase != nil { sqlite3_close(destinationDatabase) } }
+            throw sqliteError(destinationDatabase, fallback: "The score database safety copy could not be created.")
+        }
+        defer { sqlite3_close(destinationDatabase) }
+
+        guard let backup = sqlite3_backup_init(destinationDatabase, "main", sourceDatabase, "main") else {
+            throw sqliteError(destinationDatabase, fallback: "The score database safety copy could not be started.")
+        }
+        let stepResult = sqlite3_backup_step(backup, -1)
+        let finishResult = sqlite3_backup_finish(backup)
+        guard stepResult == SQLITE_DONE, finishResult == SQLITE_OK else {
+            throw sqliteError(destinationDatabase, fallback: "The score database safety copy could not be completed.")
+        }
+        guard sqlite3_exec(destinationDatabase, "PRAGMA journal_mode=DELETE;", nil, nil, nil) == SQLITE_OK else {
+            throw sqliteError(destinationDatabase, fallback: "The score database safety copy could not be finalized.")
         }
     }
 
@@ -248,9 +287,13 @@ struct ScoreBackupStore {
         return data
     }
 
-    private func sqliteError(_ database: OpaquePointer?, fallback: String) -> Error {
+    private static func sqliteError(_ database: OpaquePointer?, fallback: String) -> Error {
         let message = database.flatMap(sqlite3_errmsg).map(String.init(cString:)) ?? fallback
         return NSError(domain: "SoccerShots.ScoreBackup", code: 1, userInfo: [NSLocalizedDescriptionKey: message])
+    }
+
+    private func sqliteError(_ database: OpaquePointer?, fallback: String) -> Error {
+        Self.sqliteError(database, fallback: fallback)
     }
 }
 

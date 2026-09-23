@@ -110,6 +110,36 @@ struct ScoreBackupStoreTests {
         #expect(records.first?.scoreData == Data("{}".utf8))
     }
 
+    @Test func rawStoreSnapshotIncludesCommittedWALChanges() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("SoccerShotsBackupTests-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let sourceURL = root.appendingPathComponent("source.store")
+        let destinationURL = root.appendingPathComponent("snapshot.store")
+
+        var sourceDatabase: OpaquePointer?
+        #expect(sqlite3_open(sourceURL.path, &sourceDatabase) == SQLITE_OK)
+        guard let sourceDatabase else { return }
+        defer { sqlite3_close(sourceDatabase) }
+        #expect(sqlite3_exec(sourceDatabase, "PRAGMA journal_mode=WAL;", nil, nil, nil) == SQLITE_OK)
+        #expect(sqlite3_exec(sourceDatabase, "CREATE TABLE scores (value TEXT);", nil, nil, nil) == SQLITE_OK)
+        #expect(sqlite3_exec(sourceDatabase, "INSERT INTO scores VALUES ('keeper');", nil, nil, nil) == SQLITE_OK)
+
+        try ScoreBackupStore.createRawStoreSnapshot(from: sourceURL, to: destinationURL)
+
+        var snapshotDatabase: OpaquePointer?
+        #expect(sqlite3_open_v2(destinationURL.path, &snapshotDatabase, SQLITE_OPEN_READONLY, nil) == SQLITE_OK)
+        guard let snapshotDatabase else { return }
+        defer { sqlite3_close(snapshotDatabase) }
+        var statement: OpaquePointer?
+        #expect(sqlite3_prepare_v2(snapshotDatabase, "SELECT value FROM scores", -1, &statement, nil) == SQLITE_OK)
+        defer { sqlite3_finalize(statement) }
+        #expect(sqlite3_step(statement) == SQLITE_ROW)
+        let value = sqlite3_column_text(statement, 0).map { String(cString: $0) }
+        #expect(value == "keeper")
+    }
+
     private func sampleSnapshot(path: String) -> ScoreRecordSnapshot {
         ScoreRecordSnapshot(
             filepath: path,
