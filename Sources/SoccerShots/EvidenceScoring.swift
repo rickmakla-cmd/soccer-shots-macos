@@ -232,9 +232,32 @@ struct EvidenceParser: Sendable {
             throw SoccerShotsError.message("The evidence model did not return JSON.")
         }
         do {
-            return try JSONDecoder().decode(PhotoEvidence.self, from: data)
+            let decoded = try JSONSerialization.jsonObject(with: data)
+            guard var object = decoded as? [String: Any] else {
+                throw SoccerShotsError.message("The evidence model returned a JSON value instead of an evidence object.")
+            }
+            // Observations are explanatory metadata and do not affect any score.
+            // Qwen occasionally omits the array while returning every scored field.
+            if object["observations"] == nil { object["observations"] = [] }
+            let normalized = try JSONSerialization.data(withJSONObject: object)
+            return try JSONDecoder().decode(PhotoEvidence.self, from: normalized)
         } catch {
-            throw SoccerShotsError.message("The evidence model returned invalid evidence: \(error.localizedDescription)")
+            throw SoccerShotsError.message("The evidence model returned invalid evidence: \(Self.decoderDetail(error))")
+        }
+    }
+
+    private static func decoderDetail(_ error: Error) -> String {
+        switch error {
+        case let DecodingError.keyNotFound(key, context):
+            let path = (context.codingPath + [key]).map(\.stringValue).joined(separator: ".")
+            return "missing required field '\(path)'"
+        case let DecodingError.typeMismatch(_, context),
+             let DecodingError.valueNotFound(_, context),
+             let DecodingError.dataCorrupted(context):
+            let path = context.codingPath.map(\.stringValue).joined(separator: ".")
+            return path.isEmpty ? context.debugDescription : "field '\(path)': \(context.debugDescription)"
+        default:
+            return error.localizedDescription
         }
     }
 }

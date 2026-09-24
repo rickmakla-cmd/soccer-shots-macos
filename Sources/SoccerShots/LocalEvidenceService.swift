@@ -66,7 +66,15 @@ actor LocalEvidenceService {
         let response = try await session.respond(to: EvidencePrompt.text, images: images, videos: [], audios: [])
         generationSeconds = Date().timeIntervalSince(generationStarted)
         responseTokens = await model.encode(response).count
-        let evidence = try EvidenceParser().parse(response)
+        let evidence: PhotoEvidence
+        do {
+            evidence = try EvidenceParser().parse(response)
+        } catch {
+            evidenceScoreLogger.error(
+                "[LocalEvidenceParseFailure] photo=\(photoURL.lastPathComponent, privacy: .public) model=\(self.modelID, privacy: .public) error=\(error.localizedDescription, privacy: .public) rawResponse=\(response, privacy: .public)"
+            )
+            throw error
+        }
         return .init(
             evidence: evidence,
             pixelSharpness: PixelSharpnessAnalyzer().score(
