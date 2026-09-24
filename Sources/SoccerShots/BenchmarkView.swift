@@ -9,9 +9,9 @@ struct BenchmarkView: View {
     @State private var candidateModelID = ""
 
     private let presets = [
-        ("Qwen3.5 4B · recommended", "mlx-community/Qwen3.5-4B-MLX-4bit"),
+        ("Qwen3.5 4B · faster comparison", "mlx-community/Qwen3.5-4B-MLX-4bit"),
         ("LFM2.5-VL 1.6B · newest fast candidate", "mlx-community/LFM2.5-VL-1.6B-4bit"),
-        ("Qwen3.5 9B · comparison", "mlx-community/Qwen3.5-9B-MLX-4bit"),
+        ("Qwen3.5 9B · recommended", "mlx-community/Qwen3.5-9B-MLX-4bit"),
         ("Gemma 4 E4B · experimental", "mlx-community/gemma-4-e4b-it-8bit"),
         ("Gemma 4 12B Unified · current quality", "mlx-community/gemma-4-12B-it-4bit")
     ]
@@ -59,7 +59,7 @@ struct BenchmarkView: View {
                 TextField("Candidate Hugging Face model ID", text: $candidateModelID)
                     .textFieldStyle(.roundedBorder)
                     .disabled(model.isBenchmarking)
-                Text("Qwen 3.5 4B remains the baseline for this Mac. LFM2.5-VL 1.6B is the newest small, native-compatible candidate; Gemma 4 12B is the higher-quality test with a larger memory cost. Qwen 3.8 currently starts at 27B and is not supported by this MLX runtime. Every model receives one complete frame; SoccerShots calculates the score from evidence and measured pixel sharpness.")
+                Text("Qwen 3.5 9B is the recommended evidence model; Qwen 3.5 4B is a faster comparison with lower observed accuracy. LFM2.5-VL 1.6B is the newest small, native-compatible candidate; Gemma 4 12B is the higher-quality test with a larger memory cost. Qwen 3.8 currently starts at 27B and is not supported by this MLX runtime. Every model receives one complete frame; SoccerShots calculates the score from evidence and measured pixel sharpness.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
 

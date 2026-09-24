@@ -155,6 +155,7 @@ struct ScoreBackupStoreTests {
             isSelectedForExport: true,
             manualReviewLabelRaw: nil,
             scoreData: Data("score".utf8),
+            primaryEvidenceData: nil,
             deepReviewData: nil,
             benchmarkData: nil,
             geminiBatchData: nil,

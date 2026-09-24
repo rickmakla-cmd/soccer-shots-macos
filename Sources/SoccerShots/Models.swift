@@ -144,6 +144,7 @@ struct ScoredPhoto: Codable, Identifiable, Equatable, Sendable {
     let scoringVersion: String
     let scoringEngine: String
     var score: PhotoScore
+    var primaryEvidence: PhotoEvidence? = nil
     var deepReview: DeepReview?
     var benchmarkResult: ModelBenchmarkResult? = nil
     var geminiBatchResult: ModelBenchmarkResult? = nil

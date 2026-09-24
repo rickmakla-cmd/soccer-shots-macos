@@ -1,8 +1,8 @@
 # SoccerShots for macOS
 
-SoccerShots is a native Apple-silicon Mac app for scoring soccer photos locally. The primary scorer is Gemma 3 running in-process through Apple MLX; an API key and network connection are not required after the model has downloaded. Gemini is reserved for an explicit, optional Deep Review of a photo selected by the user.
+SoccerShots is a native Apple-silicon Mac app for scoring soccer photos locally. The primary scorer is Qwen 3.5 9B running in-process through Apple MLX; an API key and network connection are not required after the model has downloaded. Gemini is reserved for an explicit, optional Deep Review of a photo selected by the user.
 
-This repository is a Swift/SwiftUI rewrite of the validated Electron prototype at [`rickmakla-cmd/soccer-photos`](https://github.com/rickmakla-cmd/soccer-photos). It reuses the calibrated seven-dimension scoring prompt and deterministic composite formula rather than porting the Electron runtime.
+This repository is a Swift/SwiftUI rewrite of the validated Electron prototype at [`rickmakla-cmd/soccer-photos`](https://github.com/rickmakla-cmd/soccer-photos). Primary scoring asks the local model for categorical visual evidence, then converts those observations into numeric dimensions and a composite with fixed `EvidenceRuleEngine` rules.
 
 ## Current milestone
 
@@ -11,16 +11,18 @@ This repository is a Swift/SwiftUI rewrite of the validated Electron prototype a
 - RAW+JPEG basename deduplication, preferring RAW.
 - ImageIO/Core Image orientation correction, memory-bounded embedded RAW previews, and a 2400-pixel scoring cap.
 - In-process MLX VLM loading with visible download/inference progress.
-- Gemma 3 4B 4-bit scoring, defensive JSON parsing, and one repair attempt.
+- Qwen 3.5 9B 4-bit Primary scoring through `LocalEvidenceService`, producing categorical evidence for ball relevance, action, face visibility, exposure, framing, obstruction, clutter, and related observations.
+- Fixed `EvidenceRuleEngine` conversion from categorical evidence to numeric dimension scores, composite score, and keeper recommendation.
+- Legacy direct-numeric scoring through `LocalGemmaService` remains available for benchmark/comparison use, with defensive JSON parsing and one repair attempt.
 - Explicitly selected-photo evidence benchmarking with recommended Qwen3.5 9B, optional Qwen3.5 4B, and experimental Gemma 4 candidates, deterministic scoring caps, per-model history, and cloud-versus-local agreement reporting.
 - Deterministic composite calculation and the sharpness-only auto-reject rule.
-- SwiftData score persistence with size/mtime cache validation and session folder tracking.
+- SwiftData score and parsed categorical-evidence persistence with size/mtime plus scoring-engine/version cache validation and session folder tracking.
 - Filtered/sorted gallery, filter-aware Select All/Deselect All, visible click-drag marquee selection, native focus ring, arrow-key navigation, Space export selection, Enter detail, and X reject controls.
 - Full score-detail view with Lightroom guidance, exact generated develop values, metadata, selection/reject actions, and previous/next navigation.
 - Persistent user-assigned Keep/Reject ground-truth labels for evaluating and tuning model decisions.
 - Settings UI for the local model and Keychain-backed optional Gemini configuration, including live model discovery from the API key and a selectable preferred model.
 - Explicit per-photo Gemini Deep Review through Google’s current Interactions API with structured JSON stored beside the unchanged local score.
-- Selected-photo Gemini Batch Scoring with discounted asynchronous jobs, automatic payload splitting, durable job restoration, capability-aware model fallback, and side-by-side scores that never replace the Gemma primary result.
+- Selected-photo Gemini Batch Scoring with discounted asynchronous jobs, automatic payload splitting, durable job restoration, capability-aware model fallback, and side-by-side scores that never replace the local Primary result.
 - Automatic restoration of the active folder, cached scores, gallery filter/sort, focused photo, and review decisions.
 - Security-scoped folder bookmarks with a path fallback and a clean close-session action.
 - Responsive background RAW discovery during folder selection and session restoration, with cancellation support.
@@ -32,6 +34,10 @@ This repository is a Swift/SwiftUI rewrite of the validated Electron prototype a
 - Collision-safe export naming: existing originals or sidecars are never overwritten.
 
 JPEG/TIFF metadata embedding, editable metadata, comparison zoom synchronization, and signed release automation remain follow-on milestones.
+
+## Release notes
+
+- **0.1.24 (build 25):** Primary scores persist the parsed categorical `PhotoEvidence` on `ScoreRecord` for lightweight per-photo diagnosis. Cached scores now require the stored scoring engine and prompt version to match the configured Primary scorer; mismatches prompt for rescoring instead of being reused silently.
 
 ## Requirements
 
@@ -47,9 +53,9 @@ Generate the Xcode project after changing `project.yml`:
 xcodegen generate
 ```
 
-Then open `SoccerShots.xcodeproj`, choose the `SoccerShots` scheme, and run. The first score downloads `mlx-community/gemma-3-4b-it-4bit` into the app's Application Support model cache.
+Then open `SoccerShots.xcodeproj`, choose the `SoccerShots` scheme, and run. The first Primary score downloads `mlx-community/Qwen3.5-9B-MLX-4bit` into the app's Application Support model cache.
 
-Check the exact gallery photos to compare, then choose **Evidence Benchmark…**. SoccerShots snapshots that explicit selection and never substitutes a random or evenly spaced sample. Qwen3.5 4B and 9B are built-in candidates, with 9B selected by default. The model reports categorical visual evidence from one complete frame; fixed rules distinguish back-facing and obstructed faces, judge whole-subject sharpness separately, and cap routine action, loose framing, empty space, and weak subject isolation. Multi-image input is disabled because the pinned MLX Gemma 4 and Qwen processors can terminate the process while preparing differently shaped images. Agreement compares only the latest local evidence result with Gemini, preventing correlated legacy Gemma variants from receiving extra votes. In the photo detail window, assign your own Keep or Reject label to create persistent ground truth for later calibration. Evidence results and labels never replace the primary score, selection, rejection, or Gemini results.
+Normal Primary scoring and **Evidence Benchmark…** use the same categorical evidence pipeline: `LocalEvidenceService` inspects one complete frame and reports observations such as ball relevance (`central`, `relevant`, `peripheral`, or `absent`), action moment, face visibility, exposure quality, framing, obstruction, and clutter. `EvidenceRuleEngine` converts those categories and measured pixel sharpness into the stored numeric dimensions and composite; the VLM is not asked to assign those numeric scores directly. For comparisons, check the exact gallery photos and choose **Evidence Benchmark…**. SoccerShots snapshots that explicit selection and never substitutes a random or evenly spaced sample. Qwen 3.5 9B is the default candidate, with Qwen 3.5 4B and experimental Gemma models also available. Multi-image input is disabled because the pinned MLX Gemma 4 and Qwen processors can terminate the process while preparing differently shaped images. Agreement compares only the latest local evidence result with Gemini, preventing correlated legacy Gemma variants from receiving extra votes. In the photo detail window, assign your own Keep or Reject label to create persistent ground truth for later calibration. Benchmark results and labels never replace the Primary score, selection, rejection, or Gemini results.
 
 In **Compare Bursts**, choose **AI Rank Burst** to compare that burst with the selected Evidence Benchmark model. SoccerShots sends the local model one numbered contact sheet, shows the proposed winner and explanation, and changes no keep/reject decisions until **Use AI Winner** is chosen.
 
@@ -57,7 +63,7 @@ In **Compare Bursts**, choose **AI Rank Burst** to compare that burst with the s
 
 Select photos in the gallery, then choose **Score Selected…** under **Gemini Batch**. After confirmation, SoccerShots renders camera RAW files through ImageIO, prepares smaller JPEG copies, rejects blank conversions locally, splits requests below Google's 20 MB inline-batch limit, and submits true asynchronous Batch API jobs. Google currently prices Batch API processing at 50% of equivalent standard requests and targets completion within 24 hours. Batch requires a paid Gemini API project.
 
-Submitted job identifiers and their source-photo mappings are saved locally. Local filesystem paths are not included in Gemini request payloads. SoccerShots checks results every 30 seconds while monitoring is active and resumes pending jobs after the app reopens. Gemini scores and Lightroom suggestions are stored separately for comparison; they never change Gemma’s keeper, rejection, or export decisions.
+Submitted job identifiers and their source-photo mappings are saved locally. Local filesystem paths are not included in Gemini request payloads. SoccerShots checks results every 30 seconds while monitoring is active and resumes pending jobs after the app reopens. Gemini scores and Lightroom suggestions are stored separately for comparison; they never change the local Primary keeper, rejection, or export decisions.
 
 SoccerShots queries Google’s model catalog using the saved API key before a Deep Review or Batch submission. A retired saved model is replaced with a current selectable model. Deep Review uses the Interactions API; Batch remains on the discounted Batch API and selects a model advertising Batch support. If the catalog does not expose Batch capability flags, SoccerShots tries current Flash models in newest-first order. It retries another model only when Google definitively rejects the model before creating a job, not for billing, quota, timeout, or ambiguous network errors.
 

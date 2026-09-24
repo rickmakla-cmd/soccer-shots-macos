@@ -1,10 +1,13 @@
 import CoreImage
 import Foundation
+import OSLog
 import HuggingFace
 import MLXHuggingFace
 import MLXLMCommon
 import MLXVLM
 import Tokenizers
+
+private let evidenceScoreLogger = Logger(subsystem: "com.rickmakla.SoccerShots", category: "Scoring")
 
 actor LocalEvidenceService {
     static let defaultPrimaryModelID = "mlx-community/Qwen3.5-9B-MLX-4bit"
@@ -34,9 +37,20 @@ actor LocalEvidenceService {
     }
 
     func inspect(photoURL: URL, progress: @Sendable @escaping (String) -> Void) async throws -> Inspection {
+        let started = Date()
+        var preparationSeconds = 0.0
+        var generationSeconds = 0.0
+        var responseTokens = 0
+        var imageSize = "unavailable"
+        defer {
+            let message = "[LocalEvidenceScore] photo=\(photoURL.lastPathComponent) model=\(modelID) image=\(imageSize) prepare=\(String(format: "%.2f", preparationSeconds))s generate=\(String(format: "%.2f", generationSeconds))s responseTokens=\(responseTokens) total=\(String(format: "%.2f", Date().timeIntervalSince(started)))s"
+            evidenceScoreLogger.notice("\(message, privacy: .public)")
+        }
         try Task.checkCancellation()
         progress("Preparing full frame…")
         let prepared = try await preparer.prepare(photoURL)
+        preparationSeconds = Date().timeIntervalSince(started)
+        imageSize = "\(prepared.cgImage.width)x\(prepared.cgImage.height)"
         // The pinned Gemma 4 and Qwen 3.5 processors can both terminate the
         // process while combining differently shaped images. MLX reports these
         // failures as fatal assertions, so every local model receives one image.
@@ -48,7 +62,10 @@ actor LocalEvidenceService {
             generateParameters: .init(maxTokens: 900, temperature: 0),
             additionalContext: ["enable_thinking": false]
         )
+        let generationStarted = Date()
         let response = try await session.respond(to: EvidencePrompt.text, images: images, videos: [], audios: [])
+        generationSeconds = Date().timeIntervalSince(generationStarted)
+        responseTokens = await model.encode(response).count
         let evidence = try EvidenceParser().parse(response)
         return .init(
             evidence: evidence,

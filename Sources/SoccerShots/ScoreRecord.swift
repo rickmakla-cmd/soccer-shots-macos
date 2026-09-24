@@ -16,6 +16,7 @@ final class ScoreRecord {
     var isSelectedForExport: Bool
     var manualReviewLabelRaw: String?
     @Attribute(.externalStorage) var scoreData: Data
+    @Attribute(.externalStorage) var primaryEvidenceData: Data?
     @Attribute(.externalStorage) var deepReviewData: Data?
     @Attribute(.externalStorage) var benchmarkData: Data?
     @Attribute(.externalStorage) var geminiBatchData: Data?
@@ -35,6 +36,7 @@ final class ScoreRecord {
         isSelectedForExport = photo.isSelectedForExport
         manualReviewLabelRaw = photo.manualReviewLabel?.rawValue
         scoreData = try JSONEncoder().encode(photo.score)
+        primaryEvidenceData = try photo.primaryEvidence.map { try JSONEncoder().encode($0) }
         deepReviewData = try photo.deepReview.map { try JSONEncoder().encode($0) }
         benchmarkData = try photo.benchmarkResult.map { try JSONEncoder().encode($0) }
         geminiBatchData = try photo.geminiBatchResult.map { try JSONEncoder().encode($0) }
@@ -57,6 +59,7 @@ final class ScoreRecord {
         isSelectedForExport = snapshot.isSelectedForExport
         manualReviewLabelRaw = snapshot.manualReviewLabelRaw
         scoreData = snapshot.scoreData
+        primaryEvidenceData = snapshot.primaryEvidenceData
         deepReviewData = snapshot.deepReviewData
         benchmarkData = snapshot.benchmarkData
         geminiBatchData = snapshot.geminiBatchData
@@ -64,6 +67,9 @@ final class ScoreRecord {
     }
 
     var score: PhotoScore? { try? JSONDecoder().decode(PhotoScore.self, from: scoreData) }
+    var primaryEvidence: PhotoEvidence? {
+        primaryEvidenceData.flatMap { try? JSONDecoder().decode(PhotoEvidence.self, from: $0) }
+    }
     var deepReview: DeepReview? { deepReviewData.flatMap { try? JSONDecoder().decode(DeepReview.self, from: $0) } }
     var benchmarkResult: ModelBenchmarkResult? {
         benchmarkData.flatMap { try? JSONDecoder().decode(ModelBenchmarkResult.self, from: $0) }
@@ -91,7 +97,14 @@ final class ScoreRecord {
         evidenceBenchmarkData = results.isEmpty ? nil : try JSONEncoder().encode(results)
     }
 
-    func cacheMatches(_ photo: DiscoveredPhoto) -> Bool {
-        fileSize == photo.fileSize && abs(modificationDate.timeIntervalSince(photo.modificationDate)) < 0.001
+    func cacheMatches(
+        _ photo: DiscoveredPhoto,
+        scoringVersion currentVersion: String,
+        scoringEngine currentEngine: String
+    ) -> Bool {
+        fileSize == photo.fileSize
+            && abs(modificationDate.timeIntervalSince(photo.modificationDate)) < 0.001
+            && scoringVersion == currentVersion
+            && scoringEngine == currentEngine
     }
 }

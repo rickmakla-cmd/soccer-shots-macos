@@ -16,6 +16,7 @@ struct ScoreRecordSnapshot: Codable, Sendable {
     let isSelectedForExport: Bool
     let manualReviewLabelRaw: String?
     let scoreData: Data
+    let primaryEvidenceData: Data?
     let deepReviewData: Data?
     let benchmarkData: Data?
     let geminiBatchData: Data?
@@ -155,6 +156,7 @@ struct ScoreBackupStore {
                 isSelectedForExport: sqlite3_column_int(statement, 10) != 0,
                 manualReviewLabelRaw: sqliteString(statement, 11),
                 scoreData: scoreData,
+                primaryEvidenceData: nil,
                 deepReviewData: swiftDataBlob(statement, 13),
                 benchmarkData: swiftDataBlob(statement, 14),
                 geminiBatchData: swiftDataBlob(statement, 15),
@@ -312,6 +314,7 @@ extension ScoreRecordSnapshot {
         isSelectedForExport = record.isSelectedForExport
         manualReviewLabelRaw = record.manualReviewLabelRaw
         scoreData = record.scoreData
+        primaryEvidenceData = record.primaryEvidenceData
         deepReviewData = record.deepReviewData
         benchmarkData = record.benchmarkData
         geminiBatchData = record.geminiBatchData

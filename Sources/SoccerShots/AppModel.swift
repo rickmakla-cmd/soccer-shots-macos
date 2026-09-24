@@ -37,6 +37,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var burstRecommendation: BurstRecommendation?
     @Published var presentedError: String?
     @Published var presentedNotice: String?
+    @Published var isShowingStaleScoreWarning = false
 
     private var scorer: LocalEvidenceService
     private let keychain = KeychainStore()
@@ -56,6 +57,13 @@ final class AppModel: ObservableObject {
     private var activeFolderBookmark: Data?
     private var securityScopedFolderURL: URL?
     private var hasAttemptedSessionRestore = false
+    private var staleCachedScoreCount = 0
+
+    private var currentScoringEngine: String { "mlx-evidence:\(localModelID)" }
+
+    var staleScoreWarningMessage: String {
+        "\(staleCachedScoreCount) cached score\(staleCachedScoreCount == 1 ? " was" : "s were") created by a different scoring engine or scoring version. SoccerShots will not reuse \(staleCachedScoreCount == 1 ? "it" : "them"). Rescore now to replace the stale results with \(localModelDisplayName) using \(EvidencePrompt.version)."
+    }
 
     init() {
         let defaults = UserDefaults.standard
@@ -185,6 +193,8 @@ final class AppModel: ObservableObject {
         discoveredPhotos = []
         completedScores = []
         selectedPhotoID = nil
+        staleCachedScoreCount = 0
+        isShowingStaleScoreWarning = false
         progress = .idle
         benchmarkProgress = .idle
         isBenchmarking = false
@@ -318,7 +328,13 @@ final class AppModel: ObservableObject {
             for (offset, photo) in photos.enumerated() {
                 guard !Task.isCancelled else { break }
                 let index = offset + 1
-                if let cached = cachedByPath[photo.url.path], cached.cacheMatches(photo), let score = cached.score {
+                if let cached = cachedByPath[photo.url.path],
+                   cached.cacheMatches(
+                    photo,
+                    scoringVersion: EvidencePrompt.version,
+                    scoringEngine: currentScoringEngine
+                   ),
+                   let score = cached.score {
                     completedScores.append(Self.photo(from: cached, score: score))
                     if selectedPhotoID == nil { selectedPhotoID = completedScores.last?.id }
                     completed += 1
@@ -348,7 +364,8 @@ final class AppModel: ObservableObject {
                         id: UUID(), fileURL: photo.url, filename: photo.url.lastPathComponent,
                         fileSize: photo.fileSize, modificationDate: photo.modificationDate,
                         sessionFolder: folder, scoredAt: Date(), scoringVersion: EvidencePrompt.version,
-                        scoringEngine: "mlx-evidence:\(localModelID)", score: score, deepReview: nil,
+                        scoringEngine: currentScoringEngine, score: score,
+                        primaryEvidence: inspection.evidence, deepReview: nil,
                         evidenceBenchmarkResults: [primaryEvidence],
                         isPostProcessed: isPostProcessed, isManuallyRejected: false,
                         isSelectedForExport: false
@@ -773,6 +790,10 @@ final class AppModel: ObservableObject {
         localModelID = trimmed
         UserDefaults.standard.set(trimmed, forKey: "SoccerShots.localModelID")
         scorer = LocalEvidenceService(modelID: trimmed)
+        staleCachedScoreCount = completedScores.filter {
+            $0.scoringVersion != EvidencePrompt.version || $0.scoringEngine != currentScoringEngine
+        }.count
+        isShowingStaleScoreWarning = staleCachedScoreCount > 0
     }
 
     func updateBenchmarkModelID(_ modelID: String) {
@@ -1102,12 +1123,27 @@ final class AppModel: ObservableObject {
         let cachedByPath = Dictionary(uniqueKeysWithValues: records.map { ($0.filepath, $0) })
         selectedFolder = url
         discoveredPhotos = photos
+        var staleCount = 0
         completedScores = photos.compactMap { photo in
-            guard let record = cachedByPath[photo.url.path], record.cacheMatches(photo), let score = record.score else {
+            guard let record = cachedByPath[photo.url.path] else {
                 return nil
             }
+            let fileMatches = record.fileSize == photo.fileSize
+                && abs(record.modificationDate.timeIntervalSince(photo.modificationDate)) < 0.001
+            guard fileMatches else { return nil }
+            guard record.cacheMatches(
+                photo,
+                scoringVersion: EvidencePrompt.version,
+                scoringEngine: currentScoringEngine
+            ) else {
+                staleCount += 1
+                return nil
+            }
+            guard let score = record.score else { return nil }
             return Self.photo(from: record, score: score)
         }
+        staleCachedScoreCount = staleCount
+        isShowingStaleScoreWarning = staleCount > 0
         selectedPhotoID = completedScores.first?.id
     }
 
@@ -1161,7 +1197,8 @@ final class AppModel: ObservableObject {
             fileSize: record.fileSize, modificationDate: record.modificationDate,
             sessionFolder: URL(fileURLWithPath: record.sessionFolder), scoredAt: record.scoredAt,
             scoringVersion: record.scoringVersion, scoringEngine: record.scoringEngine,
-            score: score, deepReview: record.deepReview, benchmarkResult: record.benchmarkResult,
+            score: score, primaryEvidence: record.primaryEvidence,
+            deepReview: record.deepReview, benchmarkResult: record.benchmarkResult,
             geminiBatchResult: record.geminiBatchResult,
             evidenceBenchmarkResults: record.evidenceBenchmarkResults,
             isPostProcessed: record.isPostProcessed,

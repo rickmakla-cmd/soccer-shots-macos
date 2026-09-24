@@ -1,14 +1,17 @@
 import Foundation
 import CoreImage
+import OSLog
 import HuggingFace
 import MLXHuggingFace
 import MLXLMCommon
 import MLXVLM
 import Tokenizers
 
+private let gemmaScoreLogger = Logger(subsystem: "com.rickmakla.SoccerShots", category: "Scoring")
+
 actor LocalGemmaService {
     static let defaultModelID = "mlx-community/gemma-3-4b-it-4bit"
-    static let defaultBenchmarkModelID = "mlx-community/Qwen3.5-4B-MLX-4bit"
+    static let defaultBenchmarkModelID = "mlx-community/Qwen3.5-9B-MLX-4bit"
 
     private let modelID: String
     private let modelDirectory: URL
@@ -25,28 +28,49 @@ actor LocalGemmaService {
         photoURL: URL,
         progress: @Sendable @escaping (String) -> Void
     ) async throws -> PhotoScore {
+        let started = Date()
+        var preparationSeconds = 0.0
+        var generationSeconds = 0.0
+        var repairSeconds = 0.0
+        var responseTokens = 0
+        var repairTokens = 0
+        var repairAttempted = false
+        var imageSize = "unavailable"
+        defer {
+            let message = "[LocalGemmaScore] photo=\(photoURL.lastPathComponent) model=\(modelID) image=\(imageSize) prepare=\(String(format: "%.2f", preparationSeconds))s generate=\(String(format: "%.2f", generationSeconds))s responseTokens=\(responseTokens) repair=\(repairAttempted) repairTime=\(String(format: "%.2f", repairSeconds))s repairTokens=\(repairTokens) total=\(String(format: "%.2f", Date().timeIntervalSince(started)))s"
+            gemmaScoreLogger.notice("\(message, privacy: .public)")
+        }
         try Task.checkCancellation()
         progress("Preparing \(photoURL.lastPathComponent)…")
         let image = try await preparer.prepare(photoURL)
+        preparationSeconds = Date().timeIntervalSince(started)
+        imageSize = "\(image.cgImage.width)x\(image.cgImage.height)"
         let model = try await loadModel(progress: progress)
         progress("Gemma is scoring \(photoURL.lastPathComponent)…")
         let session = ChatSession(model, generateParameters: .init(maxTokens: 2_400, temperature: 0))
+        let generationStarted = Date()
         let response = try await session.respond(
             to: ScoringPrompt.text,
             images: [.ciImage(image.ciImage)],
             videos: [],
             audios: []
         )
+        generationSeconds = Date().timeIntervalSince(generationStarted)
+        responseTokens = await model.encode(response).count
         do { return try parser.parse(response) }
         catch {
+            repairAttempted = true
             progress("Gemma is repairing the score format…")
             let repair = ChatSession(model, generateParameters: .init(maxTokens: 2_400, temperature: 0))
+            let repairStarted = Date()
             let repaired = try await repair.respond(to: """
             Rewrite the attempted answer below as valid JSON only. Preserve its judgments; do not invent new scores. Follow the return shape in the scoring instructions.
 
             Attempted answer:
             \(response)
             """)
+            repairSeconds = Date().timeIntervalSince(repairStarted)
+            repairTokens = await model.encode(repaired).count
             return try parser.parse(repaired)
         }
     }

@@ -200,6 +200,14 @@ struct RootView: View {
         } message: {
             Text(model.presentedNotice ?? "")
         }
+        .alert("Cached Scores Need Rescoring", isPresented: $model.isShowingStaleScoreWarning) {
+            Button("Rescore Now") {
+                model.startScoring(modelContext: modelContext)
+            }
+            Button("Later", role: .cancel) {}
+        } message: {
+            Text(model.staleScoreWarningMessage)
+        }
         .confirmationDialog(
             "Submit \(model.selectedForExport.count) photos for Gemini Batch Scoring?",
             isPresented: $isConfirmingGeminiBatch,
