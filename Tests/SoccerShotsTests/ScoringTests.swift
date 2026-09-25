@@ -635,15 +635,16 @@ struct ScoringTests {
         #expect(photo.evidenceBenchmarkResults.count == 2)
     }
 
-    @Test func evidenceBenchmarkUsesOnlyExplicitlySelectedPhotos() {
+    @Test func evidenceBenchmarkUsesOnlySelectedPhotosFromTheVisibleFilter() {
         var first = samplePhoto(composite: 8.0, filename: "IMG_1.jpg")
         let second = samplePhoto(composite: 7.0, filename: "IMG_2.jpg")
         var third = samplePhoto(composite: 6.0, filename: "IMG_3.jpg")
         first.isSelectedForExport = true
         third.isSelectedForExport = true
 
-        let selected = EvidenceBenchmarkAnalysis.selectedCandidates(from: [first, second, third])
-        #expect(selected.map(\.filename) == ["IMG_1.jpg", "IMG_3.jpg"])
+        let visiblePhotos = [first, second]
+        let selected = EvidenceBenchmarkAnalysis.selectedCandidates(from: visiblePhotos)
+        #expect(selected.map(\.filename) == ["IMG_1.jpg"])
     }
 
     @Test func consensusReportsVotesWithoutAveragingModelScores() throws {

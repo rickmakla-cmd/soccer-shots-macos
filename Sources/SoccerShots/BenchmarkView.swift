@@ -16,7 +16,7 @@ struct BenchmarkView: View {
         ("Gemma 4 12B Unified · current quality", "mlx-community/gemma-4-12B-it-4bit")
     ]
 
-    private var candidateCount: Int { model.selectedForExport.count }
+    private var candidateCount: Int { model.selectedForBenchmark.count }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -65,11 +65,11 @@ struct BenchmarkView: View {
 
                 LabeledContent("Explicit selection", value: "\(candidateCount) checked photo\(candidateCount == 1 ? "" : "s")")
                 if candidateCount == 0 {
-                    Text("Close this window and check the gallery images you want to compare. SoccerShots will not choose benchmark photos automatically.")
+                    Text("Close this window and check the images in the current gallery filter that you want to compare. SoccerShots will not choose benchmark photos automatically.")
                         .font(.callout)
                         .foregroundStyle(.orange)
                 } else {
-                    Text("Only the checked gallery images will be scored. The selection is snapshotted when the run starts, so the A/B set is exact and repeatable.")
+                    Text("Only checked images in the current gallery filter will be scored. The selection is snapshotted when the run starts, so the A/B set is exact and repeatable.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 }

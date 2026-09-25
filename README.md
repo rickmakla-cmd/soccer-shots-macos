@@ -6,6 +6,7 @@ This repository is a Swift/SwiftUI rewrite of the validated Electron prototype a
 
 ## Current milestone
 
+- **0.1.28 (build 29):** Evidence benchmarks now scan only checked photos in the current gallery filter, matching the gallery selection count and excluding hidden selections from other filters.
 - **0.1.27 (build 28):** Gallery bands are Keeper at 8.0 or higher, Near Miss from 7.0 through 7.9, Review from 6.0 through 6.9, and Reject below 6.0.
 
 - Native SwiftUI folder selection and photo-count confirmation.

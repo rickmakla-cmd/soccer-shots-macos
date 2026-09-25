@@ -126,9 +126,8 @@ final class AppModel: ObservableObject {
     }
 
     var evidenceBenchmarkedPhotos: [ScoredPhoto] {
-        completedScores.filter { photo in
-            photo.isSelectedForExport
-                && photo.evidenceBenchmarkResults.contains { $0.modelID == benchmarkModelID }
+        selectedForBenchmark.filter { photo in
+            photo.evidenceBenchmarkResults.contains { $0.modelID == benchmarkModelID }
         }
     }
 
@@ -138,6 +137,10 @@ final class AppModel: ObservableObject {
 
     var selectedForExport: [ScoredPhoto] {
         completedScores.filter(\.isSelectedForExport)
+    }
+
+    var selectedForBenchmark: [ScoredPhoto] {
+        visiblePhotos.filter(\.isSelectedForExport)
     }
 
     func chooseFolder(modelContext: ModelContext) {
@@ -492,7 +495,7 @@ final class AppModel: ObservableObject {
         guard !isScoring, !isBenchmarking, !isDeepReviewing, !isLoadingFolder, !isExporting, !isRankingBurst else { return }
         // Snapshot only the user's explicit gallery selection. The benchmark must
         // never substitute an automatic or evenly-spaced sample for these photos.
-        let candidates = EvidenceBenchmarkAnalysis.selectedCandidates(from: completedScores)
+        let candidates = EvidenceBenchmarkAnalysis.selectedCandidates(from: selectedForBenchmark)
         guard !candidates.isEmpty else { return }
         let candidateModelID = benchmarkModelID
         isBenchmarking = true
