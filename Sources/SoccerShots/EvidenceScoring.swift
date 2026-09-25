@@ -236,8 +236,13 @@ struct EvidenceParser: Sendable {
             guard var object = decoded as? [String: Any] else {
                 throw SoccerShotsError.message("The evidence model returned a JSON value instead of an evidence object.")
             }
-            // Observations are explanatory metadata and do not affect any score.
-            // Qwen occasionally omits the array while returning every scored field.
+            if let faceSharpness = object["face_sharpness"] as? String,
+               faceSharpness == "absent" || faceSharpness == "obscured" {
+                object["face_sharpness"] = "indeterminate"
+            }
+            // These fields describe the result but do not affect its numeric score.
+            if object["primary_subject"] == nil { object["primary_subject"] = "" }
+            if object["confidence"] == nil { object["confidence"] = 0.0 }
             if object["observations"] == nil { object["observations"] = [] }
             let normalized = try JSONSerialization.data(withJSONObject: object)
             return try JSONDecoder().decode(PhotoEvidence.self, from: normalized)

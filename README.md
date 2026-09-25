@@ -37,6 +37,7 @@ JPEG/TIFF metadata embedding, editable metadata, comparison zoom synchronization
 
 ## Release notes
 
+- **0.1.26 (build 27):** Primary evidence parsing maps Qwen's `absent` and `obscured` face-sharpness responses to `indeterminate`, while keeping every score-bearing field strict. Descriptive subject, confidence, and observation fields tolerate omission.
 - **0.1.25 (build 26):** Primary evidence parsing accepts a missing diagnostic `observations` array when Qwen returns every score-bearing field. Other required evidence remains strict, and parse failures now log the exact decoder error and raw response.
 - **0.1.24 (build 25):** Primary scores persist the parsed categorical `PhotoEvidence` on `ScoreRecord` for lightweight per-photo diagnosis. Cached scores now require the stored scoring engine and prompt version to match the configured Primary scorer; mismatches prompt for rescoring instead of being reused silently.
 

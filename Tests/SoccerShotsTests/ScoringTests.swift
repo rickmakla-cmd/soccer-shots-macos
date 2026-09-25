@@ -491,10 +491,13 @@ struct ScoringTests {
         #expect(evidence.confidence == 0.85)
     }
 
-    @Test func evidenceParserDefaultsMissingObservationsToEmpty() throws {
-        let json = #"{"primary_subject":"referee in green shirt","face_visibility":"absent","face_sharpness":"indeterminate","subject_sharpness":"soft","subject_scale":"medium","subject_orientation":"away_from_camera","subject_horizontal_position":"right","action_moment":"ordinary","action_cue":"positioning","ball_relevance":"absent","emotion":"unseen","foreground_obstruction":"none","background_clutter":"moderate","empty_space":"moderate","framing_quality":"balanced","subject_isolation":"weak","exposure_quality":"good","confidence":0.9}"#
+    @Test func evidenceParserToleratesDescriptiveOmissionsAndNormalizesFaceSharpness() throws {
+        let json = #"{"face_visibility":"absent","face_sharpness":"absent","subject_sharpness":"soft","subject_scale":"medium","subject_orientation":"away_from_camera","subject_horizontal_position":"right","action_moment":"ordinary","action_cue":"positioning","ball_relevance":"absent","emotion":"unseen","foreground_obstruction":"none","background_clutter":"moderate","empty_space":"moderate","framing_quality":"balanced","subject_isolation":"weak","exposure_quality":"good"}"#
         let evidence = try EvidenceParser().parse(json)
 
+        #expect(evidence.faceSharpness == .indeterminate)
+        #expect(evidence.primarySubject.isEmpty)
+        #expect(evidence.confidence == 0)
         #expect(evidence.observations.isEmpty)
         #expect(evidence.ballRelevance == .absent)
         #expect(evidence.exposureQuality == .good)
