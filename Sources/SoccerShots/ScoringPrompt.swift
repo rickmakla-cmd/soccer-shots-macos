@@ -1,6 +1,6 @@
 enum ScoringPrompt {
     // Ported verbatim from the validated Electron prototype.
-    static let version = "v2"
+    static let version = "v3"
     static let text = #"""
     You are an expert sports photography judge evaluating youth soccer game photos.
     Your job is to score each photo across 7 dimensions and return ONLY valid JSON.
@@ -154,7 +154,7 @@ enum ScoringPrompt {
     KEEP RECOMMENDATION
     keep_recommendation: true or false
     If auto_reject is true, keep_recommendation is always false.
-    Otherwise base this on whether the composite score would likely be >= 6.5.
+    Otherwise base this on whether the composite score would likely be >= 8.0.
     When in doubt on a borderline photo, lean toward false — better to miss one good photo
     than keep 50 mediocre ones that bury the great shots.
     reject_reason: string or null

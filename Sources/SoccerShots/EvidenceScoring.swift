@@ -161,7 +161,7 @@ struct EvidenceBenchmarkResult: Codable, Equatable, Sendable {
 }
 
 enum EvidencePrompt {
-    static let version = "evidence-v2"
+    static let version = "evidence-v3"
     static let text = #"""
     Inspect this youth soccer photograph as evidence. Do not assign quality scores and do not suggest edits.
     The image is the complete frame. Judge framing, empty space, clutter, subject isolation, and the primary subject from that frame.
@@ -328,7 +328,7 @@ struct EvidenceRuleEngine: Sendable {
             actionType: .unknown
         )
         result.recalculateComposite()
-        result.keepRecommendation = !result.autoReject && result.composite >= 6.5
+        result.keepRecommendation = !result.autoReject && result.composite >= ScoreThresholds.keeper
         if !result.keepRecommendation {
             result.rejectReason = evidence.observations.first ?? "Visible evidence did not meet the keeper threshold."
         }

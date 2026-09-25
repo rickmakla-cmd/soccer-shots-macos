@@ -37,7 +37,7 @@ struct ScoringTests {
         let score = try ScoringParser().parse(json)
         #expect(score.composite == 7.9)
         #expect(score.ballInFrame == nil)
-        #expect(score.keepRecommendation)
+        #expect(!score.keepRecommendation)
     }
 
     @Test func sharpnessAtTwoAlwaysAutoRejects() throws {
@@ -142,18 +142,20 @@ struct ScoringTests {
     }
 
     @Test func galleryFiltersRespectModelRecommendationAndManualReject() {
-        var photo = samplePhoto(composite: 7.4)
-        #expect(GalleryFilter.keepers.includes(photo))
-        #expect(!GalleryFilter.nearMiss.includes(photo))
+        let keeper = samplePhoto(composite: 8.0)
+        let nearMiss = samplePhoto(composite: 7.0)
+        let review = samplePhoto(composite: 6.0)
+        let reject = samplePhoto(composite: 5.9)
 
-        photo.score.keepRecommendation = false
-        #expect(GalleryFilter.nearMiss.includes(photo))
-        #expect(!GalleryFilter.keepers.includes(photo))
+        #expect(GalleryFilter.keepers.includes(keeper))
+        #expect(GalleryFilter.nearMiss.includes(nearMiss))
+        #expect(GalleryFilter.review.includes(review))
+        #expect(GalleryFilter.rejects.includes(reject))
 
-        var rejected = photo
+        var rejected = keeper
         rejected.isManuallyRejected = true
         #expect(GalleryFilter.manuallyRejected.includes(rejected))
-        #expect(!GalleryFilter.nearMiss.includes(rejected))
+        #expect(!GalleryFilter.keepers.includes(rejected))
     }
 
     @Test func burstGroupingMapsOnlyScoredNeighboringFrames() {
@@ -401,7 +403,7 @@ struct ScoringTests {
         #expect(score.sharpness == 8)
         #expect(score.convergence == 8)
         #expect(score.composite >= 6.5)
-        #expect(score.keepRecommendation)
+        #expect(score.keepRecommendation == (score.composite >= ScoreThresholds.keeper))
     }
 
     @Test func measuredPixelSharpnessOverridesModelSharpnessClaim() {
@@ -601,7 +603,7 @@ struct ScoringTests {
         #expect(summary.averageBaseline == 7.5)
         #expect(summary.averageCandidate == 7.5)
         #expect(summary.averageDelta == 0)
-        #expect(summary.keeperAgreementRate == 0.5)
+        #expect(summary.keeperAgreementRate == 0)
         #expect(summary.averageDurationSeconds == 15)
         #expect(first.score.composite == 7.0)
         #expect(second.score.composite == 8.0)
@@ -693,7 +695,7 @@ struct ScoringTests {
             autoReject: false, sharpness: 8, faceEyes: 7, peakAction: 7,
             ballInFrame: 7, exposure: 7, composition: 7, convergence: 7,
             composite: composite, lightroomSuggestions: [], developSettings: .init(),
-            keepRecommendation: composite >= 6.5, rejectReason: nil, jerseyNumber: nil,
+            keepRecommendation: composite >= ScoreThresholds.keeper, rejectReason: nil, jerseyNumber: nil,
             jerseyColor: nil, actionType: .sprint
         )
         return ScoredPhoto(

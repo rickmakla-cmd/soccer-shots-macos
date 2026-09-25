@@ -6,6 +6,8 @@ This repository is a Swift/SwiftUI rewrite of the validated Electron prototype a
 
 ## Current milestone
 
+- **0.1.27 (build 28):** Gallery bands are Keeper at 8.0 or higher, Near Miss from 7.0 through 7.9, Review from 6.0 through 6.9, and Reject below 6.0.
+
 - Native SwiftUI folder selection and photo-count confirmation.
 - Recursive discovery of the validated image/RAW formats.
 - RAW+JPEG basename deduplication, preferring RAW.

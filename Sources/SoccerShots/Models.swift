@@ -1,5 +1,11 @@
 import Foundation
 
+enum ScoreThresholds {
+    static let keeper = 8.0
+    static let nearMiss = 7.0
+    static let review = 6.0
+}
+
 enum ActionType: String, Codable, CaseIterable, Identifiable, Sendable {
     case shot, tackle, header, save, celebration, sprint, dribble, pass, positioning, unknown
     var id: String { rawValue }
@@ -19,16 +25,17 @@ enum GalleryFilter: String, Codable, CaseIterable, Identifiable, Sendable {
         switch self {
         case .all: true
         case .keepers:
-            !photo.isManuallyRejected && photo.score.keepRecommendation
+            !photo.isManuallyRejected && !photo.score.autoReject
+                && photo.score.composite >= ScoreThresholds.keeper
         case .nearMiss:
-            !photo.isManuallyRejected && !photo.score.keepRecommendation
-                && !photo.score.autoReject && photo.score.composite >= 5.5
+            !photo.isManuallyRejected && !photo.score.autoReject
+                && (ScoreThresholds.nearMiss..<ScoreThresholds.keeper).contains(photo.score.composite)
         case .review:
-            !photo.isManuallyRejected && !photo.score.keepRecommendation
-                && !photo.score.autoReject && (3..<5.5).contains(photo.score.composite)
+            !photo.isManuallyRejected && !photo.score.autoReject
+                && (ScoreThresholds.review..<ScoreThresholds.nearMiss).contains(photo.score.composite)
         case .rejects:
-            !photo.isManuallyRejected && !photo.score.keepRecommendation
-                && (photo.score.autoReject || photo.score.composite < 3)
+            !photo.isManuallyRejected
+                && (photo.score.autoReject || photo.score.composite < ScoreThresholds.review)
         case .manuallyRejected: photo.isManuallyRejected
         }
     }

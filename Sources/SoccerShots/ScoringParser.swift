@@ -82,7 +82,7 @@ struct ScoringParser: Sendable {
         )
         score.recalculateComposite()
         // The deterministic rubric, not model arithmetic, owns the final composite.
-        score.keepRecommendation = score.composite >= 6.5 && (payload.keepRecommendation ?? false)
+        score.keepRecommendation = score.composite >= ScoreThresholds.keeper
         if !score.keepRecommendation, score.rejectReason == nil {
             score.rejectReason = "Composite score is below the keeper threshold."
         }
