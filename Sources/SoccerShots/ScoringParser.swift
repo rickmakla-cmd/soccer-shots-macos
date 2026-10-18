@@ -10,7 +10,8 @@ struct ScoringParser: Sendable {
         let exposure: Double?
         let composition: Double?
         let convergence: Double?
-        let lightroomSuggestions: [String]?
+        let resolveSuggestions: [String]?
+        let legacyLightroomSuggestions: [String]?
         let developSettings: DevelopSettings?
         let keepRecommendation: Bool?
         let rejectReason: String?
@@ -27,7 +28,8 @@ struct ScoringParser: Sendable {
             case exposure = "exposure_score"
             case composition = "composition_score"
             case convergence = "convergence_score"
-            case lightroomSuggestions = "lightroom_suggestions"
+            case resolveSuggestions = "resolve_suggestions"
+            case legacyLightroomSuggestions = "lightroom_suggestions"
             case developSettings = "develop_settings"
             case keepRecommendation = "keep_recommendation"
             case rejectReason = "reject_reason"
@@ -72,7 +74,9 @@ struct ScoringParser: Sendable {
             composition: clamped(composition),
             convergence: clamped(convergence),
             composite: 0,
-            lightroomSuggestions: Array((payload.lightroomSuggestions ?? []).prefix(5)),
+            lightroomSuggestions: Array(
+                (payload.resolveSuggestions ?? payload.legacyLightroomSuggestions ?? []).prefix(5)
+            ),
             developSettings: payload.developSettings ?? .init(),
             keepRecommendation: payload.keepRecommendation ?? false,
             rejectReason: payload.rejectReason,

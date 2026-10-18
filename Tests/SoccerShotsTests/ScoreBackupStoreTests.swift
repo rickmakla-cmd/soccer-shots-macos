@@ -7,6 +7,34 @@ import Testing
 @Suite("Score database safety backup")
 @MainActor
 struct ScoreBackupStoreTests {
+    @Test func appDatabaseLivesInsideItsOwnSupportDirectory() {
+        let root = URL(fileURLWithPath: "/tmp/SoccerShots-App-Support", isDirectory: true)
+        let backupStore = ScoreBackupStore(directoryURL: root)
+
+        #expect(backupStore.storeURL == root.appendingPathComponent("score-records.store"))
+        #expect(backupStore.storeURL.lastPathComponent != "default.store")
+    }
+
+    @Test func recoveredRecordsRemainInTheAppSpecificStore() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("SoccerShotsPrivateStoreTests-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let backupStore = ScoreBackupStore(directoryURL: root)
+        try backupStore.prepareDirectory()
+        try backupStore.save(snapshots: [sampleSnapshot(path: "/photos/persisted.CR3")])
+
+        do {
+            let configuration = ModelConfiguration(url: backupStore.storeURL)
+            let container = try ModelContainer(for: ScoreRecord.self, configurations: configuration)
+            #expect(try backupStore.restoreIfEmpty(in: container.mainContext) == 1)
+        }
+
+        let configuration = ModelConfiguration(url: backupStore.storeURL)
+        let reopened = try ModelContainer(for: ScoreRecord.self, configurations: configuration)
+        #expect(try backupStore.restoreIfEmpty(in: reopened.mainContext) == 0)
+        #expect(try reopened.mainContext.fetchCount(FetchDescriptor<ScoreRecord>()) == 1)
+    }
+
     @Test func restoresAnEmptyStoreFromPortableBackup() throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("SoccerShotsBackupTests-\(UUID().uuidString)", isDirectory: true)

@@ -71,6 +71,18 @@ struct ScoringTests {
         #expect(score.rejectReason == "Blurred face")
     }
 
+    @Test func parserAcceptsResolveSuggestionsAndLegacyCachedSuggestions() throws {
+        let current = try ScoringParser().parse("""
+        {"sharpness_score":8,"face_eyes_score":8,"peak_action_score":9,"ball_in_frame_score":7,"exposure_score":7,"composition_score":8,"convergence_score":9,"resolve_suggestions":["Raise exposure slightly"]}
+        """)
+        let legacy = try ScoringParser().parse("""
+        {"sharpness_score":8,"face_eyes_score":8,"peak_action_score":9,"ball_in_frame_score":7,"exposure_score":7,"composition_score":8,"convergence_score":9,"lightroom_suggestions":["Legacy cached guidance"]}
+        """)
+
+        #expect(current.lightroomSuggestions == ["Raise exposure slightly"])
+        #expect(legacy.lightroomSuggestions == ["Legacy cached guidance"])
+    }
+
     @Test func rawJPEGPairPrefersRAW() {
         let date = Date()
         let raw = DiscoveredPhoto(id: URL(fileURLWithPath: "/game/IMG_1.CR3"), url: URL(fileURLWithPath: "/game/IMG_1.CR3"), fileSize: 10, modificationDate: date, captureDate: nil)
@@ -80,65 +92,14 @@ struct ScoringTests {
         #expect(result[0].url.pathExtension.lowercased() == "cr3")
     }
 
-    @Test func xmpEscapesFreeTextAndMapsStars() {
-        let builder = XMPBuilder()
-        #expect(builder.stars(for: 9.0) == 5)
-        #expect(builder.stars(for: 7.5) == 4)
-        #expect(builder.escape("A & B <C> \"D\"") == "A &amp; B &lt;C&gt; &quot;D&quot;")
-    }
-
-    @Test func xmpIncludesLightroomDevelopSettings() {
-        var photo = samplePhoto(composite: 8.2, filename: "IMG_0042.CR3")
-        photo.score.lightroomSuggestions = ["Lift shadows & protect highlights"]
-        photo.score.developSettings = DevelopSettings(
-            exposure2012: "+0.30", highlights2012: -35, shadows2012: 22,
-            whites2012: 8, blacks2012: -9, clarity2012: 6, vibrance: 12,
-            saturation: nil, luminanceSmoothing: 18, colorNoiseReduction: 25,
-            whiteBalance: "As Shot"
-        )
-
-        let xmp = XMPBuilder().sidecar(for: photo)
-        #expect(xmp.contains("xmp:Rating=\"4\""))
-        #expect(xmp.contains("crs:HasSettings=\"True\""))
-        #expect(xmp.contains("crs:Exposure2012=\"+0.30\""))
-        #expect(xmp.contains("crs:Highlights2012=\"-35\""))
-        #expect(xmp.contains("Lift shadows &amp; protect highlights"))
-    }
-
-    @Test func exportCopiesOriginalAndCreatesCollisionSafeSidecar() throws {
-        let fileManager = FileManager.default
-        let root = fileManager.temporaryDirectory
-            .appendingPathComponent("SoccerShotsExportTests-\(UUID().uuidString)", isDirectory: true)
-        let sourceFolder = root.appendingPathComponent("source", isDirectory: true)
-        let destination = root.appendingPathComponent("export", isDirectory: true)
-        try fileManager.createDirectory(at: sourceFolder, withIntermediateDirectories: true)
-        defer { try? fileManager.removeItem(at: root) }
-
-        let source = sourceFolder.appendingPathComponent("IMG_0042.CR3")
-        let originalData = Data([0x43, 0x52, 0x33])
-        try originalData.write(to: source)
-        var photo = samplePhoto(composite: 8.2, filename: source.lastPathComponent)
-        photo = ScoredPhoto(
-            id: photo.id, fileURL: source, filename: photo.filename,
-            fileSize: Int64(originalData.count), modificationDate: photo.modificationDate,
-            sessionFolder: sourceFolder, scoredAt: photo.scoredAt,
-            scoringVersion: photo.scoringVersion, scoringEngine: photo.scoringEngine,
-            score: photo.score, deepReview: photo.deepReview,
-            benchmarkResult: photo.benchmarkResult, isPostProcessed: photo.isPostProcessed,
-            isManuallyRejected: photo.isManuallyRejected, isSelectedForExport: true
-        )
-
-        let service = ExportService(fileManager: fileManager)
-        let first = try service.export(photos: [photo], to: destination)
-        let second = try service.export(photos: [photo], to: destination)
-
-        #expect(first.exported == 1)
-        #expect(first.failed == 0)
-        #expect(second.exported == 1)
-        #expect(try Data(contentsOf: destination.appendingPathComponent("IMG_0042.CR3")) == originalData)
-        #expect(fileManager.fileExists(atPath: destination.appendingPathComponent("IMG_0042.xmp").path))
-        #expect(fileManager.fileExists(atPath: destination.appendingPathComponent("IMG_0042-2.CR3").path))
-        #expect(fileManager.fileExists(atPath: destination.appendingPathComponent("IMG_0042-2.xmp").path))
+    @Test func resolveTransferUsesScoreBandsAndPreservesStarMapping() {
+        #expect(ResolveStudioService.category(for: samplePhoto(composite: 8.0)) == "Keepers")
+        #expect(ResolveStudioService.category(for: samplePhoto(composite: 7.0)) == "Near Miss")
+        #expect(ResolveStudioService.category(for: samplePhoto(composite: 6.0)) == "Review")
+        #expect(ResolveStudioService.category(for: samplePhoto(composite: 5.9)) == "Rejects")
+        #expect(ResolveStudioService.rating(for: 9.0) == 5)
+        #expect(ResolveStudioService.rating(for: 7.5) == 4)
+        #expect(ResolveStudioService.rating(for: 6.0) == 3)
     }
 
     @Test func galleryFiltersRespectModelRecommendationAndManualReject() {

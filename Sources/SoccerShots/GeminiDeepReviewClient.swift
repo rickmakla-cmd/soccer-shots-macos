@@ -65,7 +65,7 @@ struct GeminiDeepReviewClient: Sendable {
 
     static func prompt(localScoreJSON: String) -> String {
         """
-        Give this soccer photo an optional deep second review. The local Gemma score below remains authoritative and must never be overwritten. Confirm or challenge it, identify anything the local pass missed, and give concrete Lightroom/crop guidance.
+        Give this soccer photo an optional deep second review. The local score below remains authoritative and must never be overwritten. Confirm or challenge it, identify anything the local pass missed, and give concrete DaVinci Resolve Studio Photo page and crop guidance.
 
         Local score: \(localScoreJSON)
 

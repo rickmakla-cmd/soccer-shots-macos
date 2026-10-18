@@ -44,6 +44,16 @@ struct ScoreBackupStore {
 
     var backupURL: URL { directoryURL.appendingPathComponent("score-records-v1.json") }
     var previousBackupURL: URL { directoryURL.appendingPathComponent("score-records-v1.previous.json") }
+    var storeURL: URL { directoryURL.appendingPathComponent("score-records.store") }
+
+    func prepareDirectory() throws {
+        try fileManager.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+    }
+
+    static func legacySharedStoreURL(fileManager: FileManager = .default) -> URL {
+        fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("default.store")
+    }
 
     func save(records: [ScoreRecord]) throws {
         guard !records.isEmpty else { return }
@@ -113,6 +123,22 @@ struct ScoreBackupStore {
         }
         defer { sqlite3_close(database) }
 
+        var tableStatement: OpaquePointer?
+        guard sqlite3_prepare_v2(
+            database,
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'ZSCORERECORD' LIMIT 1",
+            -1,
+            &tableStatement,
+            nil
+        ) == SQLITE_OK, let tableStatement else {
+            throw sqliteError(database, fallback: "The existing score database could not be inspected.")
+        }
+        defer { sqlite3_finalize(tableStatement) }
+        guard sqlite3_step(tableStatement) == SQLITE_ROW else {
+            // Another unsandboxed app may own the historical default.store.
+            return
+        }
+
         let sql = """
         SELECT ZFILEPATH, ZFILENAME, ZFILESIZE, ZMODIFICATIONDATE, ZSESSIONFOLDER,
                ZSCOREDAT, ZSCORINGVERSION, ZSCORINGENGINE, ZISPOSTPROCESSED,
@@ -172,9 +198,10 @@ struct ScoreBackupStore {
 
     /// Copies the unopened SQLite store before SwiftData gets a chance to migrate it.
     /// This is a last-resort recovery layer in addition to the portable JSON backup.
-    static func preserveRawStoreBeforeOpening(fileManager: FileManager = .default) {
-        let applicationSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        let storeURL = applicationSupport.appendingPathComponent("default.store")
+    static func preserveRawStoreBeforeOpening(
+        storeURL: URL,
+        fileManager: FileManager = .default
+    ) {
         guard fileManager.fileExists(atPath: storeURL.path) else { return }
 
         do {

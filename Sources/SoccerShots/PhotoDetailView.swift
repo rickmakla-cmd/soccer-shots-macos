@@ -10,23 +10,6 @@ struct PhotoDetailView: View {
 
     private var current: ScoredPhoto { model.selectedPhoto ?? photo }
 
-    private var developRows: [(String, String)] {
-        let settings = current.score.developSettings
-        var rows: [(String, String)] = []
-        if let value = settings.exposure2012 { rows.append(("Exposure", value)) }
-        if let value = settings.highlights2012 { rows.append(("Highlights", signed(value))) }
-        if let value = settings.shadows2012 { rows.append(("Shadows", signed(value))) }
-        if let value = settings.whites2012 { rows.append(("Whites", signed(value))) }
-        if let value = settings.blacks2012 { rows.append(("Blacks", signed(value))) }
-        if let value = settings.clarity2012 { rows.append(("Clarity", signed(value))) }
-        if let value = settings.vibrance { rows.append(("Vibrance", signed(value))) }
-        if let value = settings.saturation { rows.append(("Saturation", signed(value))) }
-        if let value = settings.luminanceSmoothing { rows.append(("Noise reduction", String(value))) }
-        if let value = settings.colorNoiseReduction { rows.append(("Color noise reduction", String(value))) }
-        if let value = settings.whiteBalance { rows.append(("White balance", value)) }
-        return rows
-    }
-
     var body: some View {
         VStack(spacing: 0) {
             HStack {
@@ -165,28 +148,13 @@ struct PhotoDetailView: View {
     }
 
     private var suggestions: some View {
-        GroupBox("Lightroom suggestions") {
+        GroupBox("Resolve Studio suggestions") {
             VStack(alignment: .leading, spacing: 8) {
                 ForEach(current.score.lightroomSuggestions, id: \.self) { suggestion in
                     Label(suggestion, systemImage: "slider.horizontal.3")
                 }
                 if current.score.lightroomSuggestions.isEmpty {
                     Text("No adjustments suggested.").foregroundStyle(.secondary)
-                }
-                if !developRows.isEmpty {
-                    Divider().padding(.vertical, 2)
-                    Text("XMP develop settings").font(.headline)
-                    Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 6) {
-                        ForEach(Array(developRows.enumerated()), id: \.offset) { item in
-                            GridRow {
-                                Text(item.element.0).foregroundStyle(.secondary)
-                                Text(item.element.1).monospacedDigit()
-                            }
-                        }
-                    }
-                    Text("These values and the star rating are written automatically when you use Export Selected + XMP.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
                 }
                 if !current.score.lightroomSuggestions.isEmpty {
                     Button("Copy all") {
@@ -196,10 +164,6 @@ struct PhotoDetailView: View {
                 }
             }.frame(maxWidth: .infinity, alignment: .leading)
         }
-    }
-
-    private func signed(_ value: Int) -> String {
-        value > 0 ? "+\(value)" : String(value)
     }
 
     private var metadata: some View {
@@ -307,7 +271,7 @@ struct PhotoDetailView: View {
                             .foregroundStyle(.red)
                     }
                     if !result.score.lightroomSuggestions.isEmpty {
-                        Text("Gemini Lightroom suggestions").font(.headline)
+                        Text("Gemini Resolve Studio suggestions").font(.headline)
                         ForEach(result.score.lightroomSuggestions, id: \.self) { suggestion in
                             Label(suggestion, systemImage: "slider.horizontal.3")
                         }

@@ -6,6 +6,7 @@ This repository is a Swift/SwiftUI rewrite of the validated Electron prototype a
 
 ## Current milestone
 
+- **0.1.29 (build 30):** Selected originals can be sent directly to DaVinci Resolve Studio with culling folders, ratings, score metadata, and editing guidance. Score records now use an app-specific database so SoccerShots does not inspect or recover another unsandboxed app's shared SwiftData store.
 - **0.1.28 (build 29):** Evidence benchmarks now scan only checked photos in the current gallery filter, matching the gallery selection count and excluding hidden selections from other filters.
 - **0.1.27 (build 28):** Gallery bands are Keeper at 8.0 or higher, Near Miss from 7.0 through 7.9, Review from 6.0 through 6.9, and Reject below 6.0.
 
@@ -20,8 +21,8 @@ This repository is a Swift/SwiftUI rewrite of the validated Electron prototype a
 - Explicitly selected-photo evidence benchmarking with recommended Qwen3.5 9B, optional Qwen3.5 4B, and experimental Gemma 4 candidates, deterministic scoring caps, per-model history, and cloud-versus-local agreement reporting.
 - Deterministic composite calculation and the sharpness-only auto-reject rule.
 - SwiftData score and parsed categorical-evidence persistence with size/mtime plus scoring-engine/version cache validation and session folder tracking.
-- Filtered/sorted gallery, filter-aware Select All/Deselect All, visible click-drag marquee selection, native focus ring, arrow-key navigation, Space export selection, Enter detail, and X reject controls.
-- Full score-detail view with Lightroom guidance, exact generated develop values, metadata, selection/reject actions, and previous/next navigation.
+- Filtered/sorted gallery, filter-aware Select All/Deselect All, visible click-drag marquee selection, native focus ring, arrow-key navigation, Space selection toggle, Enter detail, and X reject controls.
+- Full score-detail view with Resolve Studio guidance, metadata, selection/reject actions, and previous/next navigation.
 - Persistent user-assigned Keep/Reject ground-truth labels for evaluating and tuning model decisions.
 - Settings UI for the local model and Keychain-backed optional Gemini configuration, including live model discovery from the API key and a selectable preferred model.
 - Explicit per-photo Gemini Deep Review through Google’s current Interactions API with structured JSON stored beside the unchanged local score.
@@ -33,10 +34,10 @@ This repository is a Swift/SwiftUI rewrite of the validated Electron prototype a
 - Optional local AI burst ranking compares a numbered contact sheet of up to 12 evenly spaced frames and remains advisory until the user accepts its winner.
 - One-command burst winner selection that keeps the strongest frame and marks the remaining frames rejected.
 - Folder-scoped score reset clears cached scores, reviews, selections, and stored batch references without touching original photos or downloaded models.
-- Selected-photo export that copies originals and writes matching Lightroom-compatible XMP sidecars containing star ratings, guidance, and structured Camera Raw develop settings.
-- Collision-safe export naming: existing originals or sidecars are never overwritten.
+- Direct selected-photo transfer to the open DaVinci Resolve Studio project, with originals organized into Keeper, Near Miss, Review, and Reject folders.
+- Resolve metadata transfer includes star ratings, the composite and dimension scores, action/jersey details, and editing guidance. Existing imported originals are updated instead of duplicated.
 
-JPEG/TIFF metadata embedding, editable metadata, comparison zoom synchronization, and signed release automation remain follow-on milestones.
+Editable metadata, comparison zoom synchronization, automated Resolve grading, and signed release automation remain follow-on milestones.
 
 ## Release notes
 
@@ -49,6 +50,7 @@ JPEG/TIFF metadata embedding, editable metadata, comparison zoom synchronization
 - Apple silicon Mac
 - macOS 15 or newer
 - Xcode 16 or newer (the Command Line Tools alone can run Swift package tests, but cannot build the `.app` project)
+- DaVinci Resolve Studio 21.1 or newer for Photo page transfer and Canon CR3 support
 
 ## Build
 
@@ -68,15 +70,15 @@ In **Compare Bursts**, choose **AI Rank Burst** to compare that burst with the s
 
 Select photos in the gallery, then choose **Score Selected…** under **Gemini Batch**. After confirmation, SoccerShots renders camera RAW files through ImageIO, prepares smaller JPEG copies, rejects blank conversions locally, splits requests below Google's 20 MB inline-batch limit, and submits true asynchronous Batch API jobs. Google currently prices Batch API processing at 50% of equivalent standard requests and targets completion within 24 hours. Batch requires a paid Gemini API project.
 
-Submitted job identifiers and their source-photo mappings are saved locally. Local filesystem paths are not included in Gemini request payloads. SoccerShots checks results every 30 seconds while monitoring is active and resumes pending jobs after the app reopens. Gemini scores and Lightroom suggestions are stored separately for comparison; they never change the local Primary keeper, rejection, or export decisions.
+Submitted job identifiers and their source-photo mappings are saved locally. Local filesystem paths are not included in Gemini request payloads. SoccerShots checks results every 30 seconds while monitoring is active and resumes pending jobs after the app reopens. Gemini scores and Resolve Studio suggestions are stored separately for comparison; they never change the local Primary keeper, rejection, or transfer decisions.
 
 SoccerShots queries Google’s model catalog using the saved API key before a Deep Review or Batch submission. A retired saved model is replaced with a current selectable model. Deep Review uses the Interactions API; Batch remains on the discounted Batch API and selects a model advertising Batch support. If the catalog does not expose Batch capability flags, SoccerShots tries current Flash models in newest-first order. It retries another model only when Google definitively rejects the model before creating a job, not for billing, quota, timeout, or ambiguous network errors.
 
-## Lightroom export
+## DaVinci Resolve Studio
 
-Select photos in the gallery, then choose **Export Selected + XMP…** in the sidebar. SoccerShots copies each original to the folder you choose and creates a sidecar with the same basename—for example, `IMG_0042.CR3` and `IMG_0042.xmp`. Import the exported originals into Lightroom Classic with their sidecars kept beside them. If a RAW was already imported before its sidecar existed, use **Metadata > Read Metadata from File** in Lightroom Classic.
+Open or create and save the destination project with a name in Resolve Studio, then select photos in SoccerShots and choose **Send Selected to Resolve…**. SoccerShots opens Resolve if necessary and imports the original files into `SoccerShots/<session>/<category>` Media Pool folders. Files already present in the project are moved to their current category and have their metadata updated instead of being imported again.
 
-Automatic develop-setting application is intended for proprietary camera RAW files. SoccerShots also exports an XMP record beside raster files, but it does not yet embed metadata into JPEG, TIFF, PSD, or DNG files.
+In Resolve Studio, set **Preferences > System > General > External scripting** to **Local**. The transfer adds a star rating, category color, keywords, score details, and editing guidance, then opens the Photo page. SoccerShots does not automatically convert legacy Adobe Camera Raw settings into a Resolve grade because the controls and image pipelines are not equivalent.
 
 Run the domain tests with:
 
@@ -86,4 +88,4 @@ swift test
 
 ## Privacy boundary
 
-Folder discovery, primary scoring, caching, and XMP generation are local. Gemini is not called by the normal scoring pipeline. A cloud request happens only after an explicit single-photo Deep Review or confirmed selected-photo Batch Scoring action. Those actions send a resized JPEG and scoring prompt to Google's Gemini API; they do not send the source file's local path. The API key is stored in Keychain and sent only to Google's API in an HTTP header. Never commit API keys, credentials, private photographs, or exported session data to this repository.
+Folder discovery, primary scoring, caching, and Resolve transfer preparation are local. Gemini is not called by the normal scoring pipeline. A cloud request happens only after an explicit single-photo Deep Review or confirmed selected-photo Batch Scoring action. Those actions send a resized JPEG and scoring prompt to Google's Gemini API; they do not send the source file's local path. The API key is stored in Keychain and sent only to Google's API in an HTTP header. Never commit API keys, credentials, private photographs, or exported session data to this repository.

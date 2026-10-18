@@ -109,9 +109,9 @@ enum ScoringPrompt {
     If you're giving 9s and 10s freely, recalibrate — you're making the scoring useless.
     
     ---
-    LIGHTROOM EDIT SUGGESTIONS
-    Based on the scores above, provide 3-5 specific, actionable Lightroom adjustments.
-    Use exact slider names and numeric ranges where possible.
+    DAVINCI RESOLVE STUDIO EDIT SUGGESTIONS
+    Based on the scores above, provide 3-5 specific, actionable adjustments for the Resolve Photo page.
+    Use exact Resolve control names and numeric ranges where possible.
     Only suggest adjustments for issues actually visible in this image.
     Examples of good suggestions:
       "Exposure: +0.7 — subject slightly underexposed, face needs brightening"
@@ -123,33 +123,9 @@ enum ScoringPrompt {
     Do NOT suggest adjustments for things that look fine. 3 specific suggestions beats 5 vague ones.
     
     ---
-    DEVELOP SETTINGS (structured values for Lightroom automation)
-    Return a "develop_settings" object with ONLY the fields that actually need adjustment.
-    Omit any field that should stay at its default value (0 for most sliders, "As Shot" for white balance).
-    These values are written directly into the XMP sidecar for Lightroom to apply.
-    
-    Field reference (Camera Raw parameter names and valid ranges):
-      Exposure2012: exposure, string like "+0.70" or "-0.30" (range -5.00 to +5.00)
-      Highlights2012: highlights, integer -100 to +100
-      Shadows2012: shadows, integer -100 to +100
-      Whites2012: white point, integer -100 to +100
-      Blacks2012: black point, integer -100 to +100
-      Clarity2012: midtone contrast, integer -100 to +100
-      Vibrance: vibrance, integer -100 to +100
-      Saturation: saturation, integer -100 to +100
-      LuminanceSmoothing: noise reduction luminance, integer 0 to 100
-      ColorNoiseReduction: noise reduction color, integer 0 to 100
-      WhiteBalance: "As Shot" | "Auto" | "Daylight" | "Cloudy" | "Shade" | "Tungsten" | "Fluorescent" | "Flash"
-    
-    Example — only include fields that need adjustment:
-    "develop_settings": {
-      "Exposure2012": "+0.70",
-      "Highlights2012": -45,
-      "Shadows2012": 35,
-      "Clarity2012": 20,
-      "LuminanceSmoothing": 35
-    }
-    
+    Return an empty "develop_settings" object. SoccerShots transfers the written suggestions to Resolve metadata;
+    it does not translate Adobe Camera Raw parameters into a Resolve grade.
+
     ---
     KEEP RECOMMENDATION
     keep_recommendation: true or false
@@ -190,15 +166,12 @@ enum ScoringPrompt {
       "composition_score": 6,
       "convergence_score": 7,
       "composite_score": 7.6,
-      "lightroom_suggestions": [
-        "Exposure: +0.5 — subject slightly underexposed",
-        "Clarity: +15 — add midtone contrast for sharpness feel",
+      "resolve_suggestions": [
+        "Offset: raise exposure slightly — subject is underexposed",
+        "Midtone Detail: increase gently — improve athletic definition",
         "Crop: reframe slightly left, give subject space to move into"
       ],
-      "develop_settings": {
-        "Exposure2012": "+0.50",
-        "Clarity2012": 15
-      },
+      "develop_settings": {},
       "keep_recommendation": true,
       "reject_reason": null,
       "jersey_number": "10",

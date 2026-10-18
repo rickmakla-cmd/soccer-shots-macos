@@ -69,13 +69,13 @@ struct RootView: View {
                     }
                 }
                 if !model.completedScores.isEmpty {
-                    Section("Export") {
+                    Section("Resolve Studio") {
                         Button {
-                            model.exportSelectedPhotos()
+                            model.sendSelectedPhotosToResolve()
                         } label: {
                             Label(
-                                "Export \(model.selectedForExport.count) Selected + XMP…",
-                                systemImage: "square.and.arrow.up"
+                                "Send \(model.selectedForExport.count) Selected to Resolve…",
+                                systemImage: "photo.on.rectangle.angled"
                             )
                         }
                         .disabled(
@@ -83,7 +83,7 @@ struct RootView: View {
                             model.isDeepReviewing || model.isLoadingFolder || model.isExporting
                             || model.isRankingBurst
                         )
-                        .help("Copy selected originals and create matching Lightroom XMP sidecars")
+                        .help("Import selected originals and SoccerShots metadata into Resolve Studio")
 
                         if model.isExporting {
                             VStack(alignment: .leading, spacing: 6) {
@@ -93,16 +93,10 @@ struct RootView: View {
                                     .foregroundStyle(.secondary)
                                     .lineLimit(2)
                             }
-                            Button("Cancel Export", role: .cancel) { model.cancelExport() }
+                            Button("Cancel Transfer", role: .cancel) { model.cancelExport() }
                         }
 
-                        if model.lastExportFolder != nil, !model.isExporting {
-                            Button("Show Last Export in Finder", systemImage: "folder.badge.gearshape") {
-                                model.revealLastExport()
-                            }
-                        }
-
-                        Text("Copies originals and writes Lightroom ratings and suggested develop settings to same-name .xmp sidecars.")
+                        Text("Imports originals into the open Resolve Studio project, organizes them by culling category, and adds ratings and score details.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -190,12 +184,6 @@ struct RootView: View {
             get: { model.presentedNotice != nil },
             set: { if !$0 { model.presentedNotice = nil } }
         )) {
-            if model.lastExportFolder != nil {
-                Button("Show in Finder") {
-                    model.revealLastExport()
-                    model.presentedNotice = nil
-                }
-            }
             Button("OK") { model.presentedNotice = nil }
         } message: {
             Text(model.presentedNotice ?? "")

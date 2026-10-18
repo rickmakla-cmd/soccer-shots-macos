@@ -31,8 +31,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var benchmarkProgress: BenchmarkProgress = .idle
     @Published private(set) var geminiBatchProgress: GeminiBatchProgress = .idle
     @Published private(set) var activeGeminiBatchJobs: [GeminiBatchJob] = []
-    @Published private(set) var exportProgress: ExportProgress = .idle
-    @Published private(set) var lastExportFolder: URL?
+    @Published private(set) var exportProgress: ResolveTransferProgress = .idle
     @Published private(set) var burstRankingMessage = "AI burst ranking ready"
     @Published private(set) var burstRecommendation: BurstRecommendation?
     @Published var presentedError: String?
@@ -204,7 +203,6 @@ final class AppModel: ObservableObject {
         isExporting = false
         isGeminiBatchRunning = false
         exportProgress = .idle
-        lastExportFolder = nil
         burstRecommendation = nil
         isRankingBurst = false
         if let burstRankingService { Task { await burstRankingService.unload() } }
@@ -245,59 +243,34 @@ final class AppModel: ObservableObject {
         }
     }
 
-    func exportSelectedPhotos() {
+    func sendSelectedPhotosToResolve() {
         guard !isScoring, !isBenchmarking, !isDeepReviewing, !isLoadingFolder, !isExporting, !isRankingBurst else { return }
         let photos = selectedForExport
         guard !photos.isEmpty else {
-            presentedError = "Select at least one photo before exporting."
+            presentedError = "Select at least one photo before sending it to Resolve Studio."
             return
         }
-
-        let panel = NSOpenPanel()
-        panel.title = "Export selected originals and Lightroom XMP sidecars"
-        panel.message = "SoccerShots will copy each selected original and place a matching .xmp sidecar beside it. Existing files are never overwritten."
-        panel.prompt = "Export Here"
-        panel.canChooseFiles = false
-        panel.canChooseDirectories = true
-        panel.canCreateDirectories = true
-        panel.allowsMultipleSelection = false
-        guard panel.runModal() == .OK, let destination = panel.url else { return }
-
-        let hasNonSidecarFormat = photos.contains {
-            !PhotoDiscovery.proprietaryRawExtensions.contains($0.fileURL.pathExtension.lowercased())
-        }
-        let isAccessing = destination.startAccessingSecurityScopedResource()
         isExporting = true
-        exportProgress = .exporting(index: 0, total: photos.count, filename: "Preparing export…")
+        exportProgress = .preparing(total: photos.count)
+        let sessionName = selectedFolder?.lastPathComponent ?? "Photo Session"
 
         exportTask = Task { [weak self] in
             guard let self else { return }
-            defer {
-                if isAccessing { destination.stopAccessingSecurityScopedResource() }
-            }
-            let worker = Task.detached(priority: .userInitiated) {
-                try ExportService().export(photos: photos, to: destination) { update in
+            do {
+                let result = try await ResolveStudioService().transfer(
+                    photos: photos,
+                    sessionName: sessionName
+                ) { update in
                     Task { @MainActor [weak self] in self?.exportProgress = update }
                 }
-            }
-            do {
-                let result = try await withTaskCancellationHandler {
-                    try await worker.value
-                } onCancel: {
-                    worker.cancel()
-                }
-                lastExportFolder = destination
-                let formatNote = hasNonSidecarFormat
-                    ? "\n\nNote: Adobe automatically reads sidecar develop settings for camera RAW files. Raster files were copied with an XMP record, but Lightroom may require metadata to be embedded in those files."
-                    : ""
                 let failureNote = result.failures.isEmpty
                     ? ""
                     : "\n\n\(result.failures.prefix(3).joined(separator: "\n"))"
-                presentedNotice = "Exported \(result.exported) photo\(result.exported == 1 ? "" : "s") with Lightroom XMP to:\n\(destination.path)\n\nImport the originals from this folder into Lightroom Classic; the matching sidecars contain the rating and suggested develop settings.\(formatNote)\(failureNote)"
+                presentedNotice = "Sent \(result.imported + result.reused) photo\(result.imported + result.reused == 1 ? "" : "s") to Resolve Studio project “\(result.projectName)”.\n\n\(result.imported) imported, \(result.reused) already present and updated, \(result.failed) failed.\(failureNote)"
             } catch is CancellationError {
                 exportProgress = .idle
             } catch {
-                presentedError = "The export could not be completed.\n\n\(error.localizedDescription)"
+                presentedError = "The Resolve Studio transfer could not be completed.\n\n\(error.localizedDescription)"
                 exportProgress = .idle
             }
             isExporting = false
@@ -307,11 +280,6 @@ final class AppModel: ObservableObject {
 
     func cancelExport() {
         exportTask?.cancel()
-    }
-
-    func revealLastExport() {
-        guard let lastExportFolder else { return }
-        NSWorkspace.shared.activateFileViewerSelecting([lastExportFolder])
     }
 
     func startScoring(modelContext: ModelContext, isPostProcessed: Bool = false) {

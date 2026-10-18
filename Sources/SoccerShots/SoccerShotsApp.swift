@@ -7,10 +7,21 @@ struct SoccerShotsApp: App {
     private let modelContainer: ModelContainer
 
     init() {
-        ScoreBackupStore.preserveRawStoreBeforeOpening()
         let backupStore = ScoreBackupStore()
+        let hadAppSpecificStore = FileManager.default.fileExists(atPath: backupStore.storeURL.path)
         do {
-            try backupStore.createPortableBackupFromRawStoreIfNeeded()
+            try backupStore.prepareDirectory()
+            ScoreBackupStore.preserveRawStoreBeforeOpening(storeURL: backupStore.storeURL)
+            if hadAppSpecificStore {
+                try backupStore.createPortableBackupFromRawStoreIfNeeded(storeURL: backupStore.storeURL)
+            } else {
+                // Older releases used SwiftData's generic default.store location,
+                // which can be shared by unrelated unsandboxed apps. Import its
+                // data only when no portable backup already exists.
+                try backupStore.createPortableBackupFromRawStoreIfNeeded(
+                    storeURL: ScoreBackupStore.legacySharedStoreURL()
+                )
+            }
         } catch {
             UserDefaults.standard.set(
                 "SoccerShots preserved the original database but could not create its portable pre-migration backup: \(error.localizedDescription)",
@@ -19,7 +30,8 @@ struct SoccerShotsApp: App {
         }
         let container: ModelContainer
         do {
-            container = try ModelContainer(for: ScoreRecord.self)
+            let configuration = ModelConfiguration(url: backupStore.storeURL)
+            container = try ModelContainer(for: ScoreRecord.self, configurations: configuration)
         } catch {
             fatalError("SoccerShots could not open its score database: \(error.localizedDescription)")
         }
@@ -31,7 +43,7 @@ struct SoccerShotsApp: App {
             if !records.isEmpty {
                 try backupStore.save(records: records)
             }
-            if restored > 0 {
+            if restored > 0, hadAppSpecificStore {
                 UserDefaults.standard.set(
                     "Recovered \(restored.formatted()) saved score-cache records after repairing the database. No photo folder or session was reopened; choose a folder to start new work.",
                     forKey: ScoreBackupStore.startupNoticeKey
