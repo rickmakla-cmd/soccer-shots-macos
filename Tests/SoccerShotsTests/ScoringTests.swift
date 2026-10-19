@@ -685,6 +685,26 @@ struct ScoringTests {
         #expect(recommendation.developSettings.isEmpty)
     }
 
+    @Test func lightroomRecommendationParserCoercesModelNumericFormats() throws {
+        let recommendation = try LightroomRecommendationParser().parse(#"""
+        {
+          "lightroom_suggestions": "Lift the subject",
+          "develop_settings": {
+            "Exposure2012": 0.35,
+            "Highlights2012": "-24",
+            "Shadows2012": 30.4,
+            "WhiteBalance": "daylight"
+          }
+        }
+        """#)
+
+        #expect(recommendation.suggestions == ["Lift the subject"])
+        #expect(recommendation.developSettings.exposure2012 == "+0.35")
+        #expect(recommendation.developSettings.highlights2012 == -24)
+        #expect(recommendation.developSettings.shadows2012 == 30)
+        #expect(recommendation.developSettings.whiteBalance == "Daylight")
+    }
+
     @Test func xmpSidecarContainsRatingAndDevelopCorrections() {
         var photo = samplePhoto(composite: 8.2, filename: "IMG_1.CR3")
         photo.score.lightroomSuggestions = ["Lift shadows on the face"]

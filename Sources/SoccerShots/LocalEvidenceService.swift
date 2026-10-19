@@ -102,7 +102,14 @@ actor LocalEvidenceService {
             to: LightroomRecommendationPrompt.text,
             images: [.ciImage(prepared.ciImage)], videos: [], audios: []
         )
-        return try LightroomRecommendationParser().parse(response)
+        do {
+            return try LightroomRecommendationParser().parse(response)
+        } catch {
+            evidenceScoreLogger.error(
+                "[LightroomRecommendationParseFailure] photo=\(photoURL.lastPathComponent, privacy: .public) model=\(self.modelID, privacy: .public) error=\(error.localizedDescription, privacy: .public) rawResponse=\(response, privacy: .public)"
+            )
+            throw error
+        }
     }
 
     func verifyVision(progress: @Sendable @escaping (String) -> Void) async throws {

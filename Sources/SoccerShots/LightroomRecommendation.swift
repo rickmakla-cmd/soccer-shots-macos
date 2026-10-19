@@ -52,14 +52,66 @@ struct LightroomRecommendationParser: Sendable {
             throw SoccerShotsError.message("The Lightroom recommendation model did not return JSON.")
         }
         do {
-            let decoded = try JSONDecoder().decode(LightroomRecommendation.self, from: data)
+            guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                throw SoccerShotsError.message("The Lightroom recommendation model returned a JSON value instead of an object.")
+            }
+            let suggestions: [String]
+            switch object["lightroom_suggestions"] {
+            case let values as [Any]:
+                suggestions = values.compactMap { $0 as? String }
+            case let value as String:
+                suggestions = [value]
+            case nil, is NSNull:
+                suggestions = []
+            default:
+                throw SoccerShotsError.message("The Lightroom recommendation model returned an invalid lightroom_suggestions value.")
+            }
+
+            let settingsObject: [String: Any]
+            switch object["develop_settings"] {
+            case let values as [String: Any]:
+                settingsObject = Dictionary(uniqueKeysWithValues: values.map { ($0.key.lowercased(), $0.value) })
+            case nil, is NSNull:
+                settingsObject = [:]
+            default:
+                throw SoccerShotsError.message("The Lightroom recommendation model returned an invalid develop_settings object.")
+            }
+            let settings = DevelopSettings(
+                exposure2012: Self.stringValue(settingsObject["exposure2012"]),
+                highlights2012: Self.intValue(settingsObject["highlights2012"]),
+                shadows2012: Self.intValue(settingsObject["shadows2012"]),
+                whites2012: Self.intValue(settingsObject["whites2012"]),
+                blacks2012: Self.intValue(settingsObject["blacks2012"]),
+                clarity2012: Self.intValue(settingsObject["clarity2012"]),
+                vibrance: Self.intValue(settingsObject["vibrance"]),
+                saturation: Self.intValue(settingsObject["saturation"]),
+                luminanceSmoothing: Self.intValue(settingsObject["luminancesmoothing"]),
+                colorNoiseReduction: Self.intValue(settingsObject["colornoisereduction"]),
+                whiteBalance: Self.stringValue(settingsObject["whitebalance"])
+            )
             return .init(
-                suggestions: Array(decoded.suggestions.prefix(5)),
-                developSettings: decoded.developSettings.normalizedForLightroom()
+                suggestions: Array(suggestions.prefix(5)),
+                developSettings: settings.normalizedForLightroom()
             )
         } catch {
+            if let error = error as? SoccerShotsError { throw error }
             throw SoccerShotsError.message("The Lightroom recommendation model returned invalid settings: \(error.localizedDescription)")
         }
     }
 
+    private static func stringValue(_ value: Any?) -> String? {
+        switch value {
+        case let value as String: value
+        case let value as NSNumber: value.stringValue
+        default: nil
+        }
+    }
+
+    private static func intValue(_ value: Any?) -> Int? {
+        switch value {
+        case let value as NSNumber: Int(value.doubleValue.rounded())
+        case let value as String: Double(value).map { Int($0.rounded()) }
+        default: nil
+        }
+    }
 }

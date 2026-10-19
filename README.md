@@ -6,6 +6,7 @@ This repository is a Swift/SwiftUI rewrite of the validated Electron prototype a
 
 ## Current milestone
 
+- **0.1.31 (build 32):** Lightroom correction backfill accepts the numeric and string slider formats returned by the local model, and logs the raw response if correction parsing still fails.
 - **0.1.30 (build 31):** Restored Lightroom Classic export of selected originals with matching XMP sidecars. Primary scoring records conservative Camera Raw develop settings; cached scores without corrections are completed once during export and saved for reuse. Startup recovery now reconciles missing records from the portable backup into a partially populated score database.
 - **0.1.29 (build 30):** Selected originals can be sent directly to DaVinci Resolve Studio with culling folders, ratings, score metadata, and editing guidance. Score records now use an app-specific database so SoccerShots does not inspect or recover another unsandboxed app's shared SwiftData store.
 - **0.1.28 (build 29):** Evidence benchmarks now scan only checked photos in the current gallery filter, matching the gallery selection count and excluding hidden selections from other filters.
