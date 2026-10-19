@@ -22,7 +22,12 @@ struct PhotoDetailView: View {
             }.padding().background(.bar)
 
             HSplitView {
-                LocalThumbnail(url: current.fileURL, maxPixelSize: 2_400, contentMode: .fit)
+                LocalThumbnail(
+                    url: current.fileURL,
+                    maxPixelSize: 2_400,
+                    contentMode: .fit,
+                    loadingLane: .foreground
+                )
                     .frame(minWidth: 520, maxWidth: .infinity, maxHeight: .infinity)
                     .background(.black)
 

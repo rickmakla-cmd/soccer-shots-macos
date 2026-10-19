@@ -575,6 +575,7 @@ struct LocalThumbnail: View {
     let url: URL
     var maxPixelSize: Int = 600
     var contentMode: ContentMode = .fill
+    var loadingLane: ThumbnailLoadingLane = .gallery
     @State private var image: NSImage?
     @State private var didFail = false
 
@@ -601,7 +602,10 @@ struct LocalThumbnail: View {
         .task(id: "\(url.path)|\(maxPixelSize)") {
             image = nil
             didFail = false
-            let loaded = await ThumbnailLoader.shared.image(for: url, maxPixelSize: maxPixelSize)
+            let loader = loadingLane == .foreground
+                ? ThumbnailLoader.foreground
+                : ThumbnailLoader.gallery
+            let loaded = await loader.image(for: url, maxPixelSize: maxPixelSize)
             guard !Task.isCancelled else { return }
             image = loaded
             didFail = loaded == nil
@@ -609,19 +613,26 @@ struct LocalThumbnail: View {
     }
 }
 
+enum ThumbnailLoadingLane {
+    case gallery
+    case foreground
+}
+
 /// Serializes RAW thumbnail decoding away from the main actor. ImageIO can
 /// return blank frames when many full RAW renders are requested concurrently,
-/// which was easy to trigger by changing a gallery filter.
+/// which was easy to trigger by changing a gallery filter. Foreground previews
+/// use a separate lane so they cannot wait behind the gallery's decode backlog.
 private actor ThumbnailLoader {
-    static let shared = ThumbnailLoader()
+    static let gallery = ThumbnailLoader(countLimit: 256, totalCostLimit: 96 * 1_024 * 1_024)
+    static let foreground = ThumbnailLoader(countLimit: 8, totalCostLimit: 48 * 1_024 * 1_024)
 
     private let cache = NSCache<NSString, NSImage>()
 
-    private init() {
+    private init(countLimit: Int, totalCostLimit: Int) {
         // NSCache sheds images automatically under model or system memory
         // pressure. This is enough to avoid repeatedly decoding visible cards.
-        cache.countLimit = 256
-        cache.totalCostLimit = 96 * 1_024 * 1_024
+        cache.countLimit = countLimit
+        cache.totalCostLimit = totalCostLimit
     }
 
     func image(for url: URL, maxPixelSize: Int) async -> NSImage? {
