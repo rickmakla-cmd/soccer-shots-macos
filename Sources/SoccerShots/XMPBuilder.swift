@@ -15,8 +15,10 @@ struct XMPBuilder: Sendable {
         if score.actionType != .unknown { description.append(score.actionType.rawValue) }
         if let number = score.jerseyNumber { description.append("#\(number)") }
         if let color = score.jerseyColor { description.append(color) }
-        if !score.lightroomSuggestions.isEmpty { description.append(score.lightroomSuggestions.joined(separator: " · ")) }
-        let crs = developAttributes(score.developSettings)
+        let safeSettings = score.developSettings.normalizedForLightroom()
+        let settingSummary = developSettingSummary(safeSettings)
+        if !settingSummary.isEmpty { description.append(settingSummary) }
+        let crs = developAttributes(safeSettings)
         return """
         <?xml version="1.0" encoding="UTF-8"?>
         <x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="SoccerShots">
@@ -57,5 +59,10 @@ struct XMPBuilder: Sendable {
         return "\n              xmlns:crs=\"http://ns.adobe.com/camera-raw-settings/1.0/\"\n              crs:ProcessVersion=\"11.0\"" +
             "\n              crs:HasSettings=\"True\"\n              crs:AlreadyApplied=\"False\"" +
             values.map { "\n              crs:\($0.0)=\"\(escape($0.1))\"" }.joined()
+    }
+
+    private func developSettingSummary(_ settings: DevelopSettings) -> String {
+        let values = settings.lightroomSettingSummaries
+        return values.isEmpty ? "" : "Lightroom: " + values.joined(separator: " · ")
     }
 }

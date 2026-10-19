@@ -28,13 +28,19 @@ enum LightroomRecommendationPrompt {
 
     Use 1-5 concise, specific suggestions. The develop_settings object is written directly to an Adobe Camera Raw XMP sidecar. Omit controls that should stay at their defaults.
 
-    Allowed develop_settings fields and ranges:
-    Exposure2012: string from "-5.00" to "+5.00"
-    Highlights2012, Shadows2012, Whites2012, Blacks2012, Clarity2012, Vibrance, Saturation: integer -100 to 100
-    LuminanceSmoothing, ColorNoiseReduction: integer 0 to 100
-    WhiteBalance: "As Shot", "Auto", "Daylight", "Cloudy", "Shade", "Tungsten", "Fluorescent", or "Flash"
+    Allowed develop_settings fields and automation-safe ranges:
+    Exposure2012: string from "-0.25" to "+0.25"
+    Highlights2012: integer -25 to 25
+    Shadows2012: integer -20 to 20
+    Whites2012, Blacks2012: integer -15 to 15
+    Clarity2012, Vibrance: integer -10 to 10
+    Saturation: integer -5 to 5
+    LuminanceSmoothing, ColorNoiseReduction: integer 0 to 40
+    WhiteBalance: "As Shot" only
 
-    Use conservative photographic corrections. Do not invent a problem. Do not recommend sharpening because this sidecar does not expose sharpening controls. Mention a crop only in suggestions because crop coordinates are not part of develop_settings.
+    Judge every photo independently. Returning no suggestions and an empty develop_settings object is valid when the photo does not need a correction. Do not reuse a standard recipe merely because the photos have similar content.
+
+    Use conservative photographic corrections. Do not infer white balance from weather or label overcast daylight as Shade or Cloudy. A preview does not contain enough raw information to choose an absolute temperature, so use As Shot if white balance is mentioned. Avoid combining positive Exposure, strongly lifted Shadows, and positive Blacks unless each change is visibly necessary; that combination creates flat, washed-out images. Do not recommend sharpening because this sidecar does not expose sharpening controls. Mention a crop only in suggestions because crop coordinates are not part of develop_settings.
 
     Exact JSON shape:
     {
@@ -89,9 +95,10 @@ struct LightroomRecommendationParser: Sendable {
                 colorNoiseReduction: Self.intValue(settingsObject["colornoisereduction"]),
                 whiteBalance: Self.stringValue(settingsObject["whitebalance"])
             )
+            let normalizedSettings = settings.normalizedForLightroom()
             return .init(
-                suggestions: Array(suggestions.prefix(5)),
-                developSettings: settings.normalizedForLightroom()
+                suggestions: normalizedSettings.alignedSuggestions(preserving: suggestions),
+                developSettings: normalizedSettings
             )
         } catch {
             if let error = error as? SoccerShotsError { throw error }

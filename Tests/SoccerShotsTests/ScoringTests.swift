@@ -471,9 +471,9 @@ struct ScoringTests {
         let evidence = try EvidenceParser().parse(json)
         let score = EvidenceRuleEngine().score(evidence)
 
-        #expect(score.lightroomSuggestions == ["Lift the subject"])
-        #expect(score.developSettings.exposure2012 == "+0.40")
-        #expect(score.developSettings.shadows2012 == 30)
+        #expect(score.lightroomSuggestions == ["Exposure: +0.25", "Shadows: 15"])
+        #expect(score.developSettings.exposure2012 == "+0.25")
+        #expect(score.developSettings.shadows2012 == 15)
         #expect(score.composite > 0)
     }
 
@@ -670,12 +670,15 @@ struct ScoringTests {
         ```
         """#)
 
-        #expect(recommendation.suggestions.count == 2)
-        #expect(recommendation.developSettings.exposure2012 == "+5.00")
-        #expect(recommendation.developSettings.highlights2012 == -100)
-        #expect(recommendation.developSettings.shadows2012 == 35)
+        #expect(recommendation.suggestions == [
+            "Exposure: +0.25", "Highlights: -25", "Shadows: 15",
+            "Luminance noise reduction: 0", "White balance: As Shot"
+        ])
+        #expect(recommendation.developSettings.exposure2012 == "+0.25")
+        #expect(recommendation.developSettings.highlights2012 == -25)
+        #expect(recommendation.developSettings.shadows2012 == 15)
         #expect(recommendation.developSettings.luminanceSmoothing == 0)
-        #expect(recommendation.developSettings.whiteBalance == "Cloudy")
+        #expect(recommendation.developSettings.whiteBalance == "As Shot")
     }
 
     @Test func lightroomRecommendationParserToleratesOmittedOptionalSections() throws {
@@ -698,11 +701,13 @@ struct ScoringTests {
         }
         """#)
 
-        #expect(recommendation.suggestions == ["Lift the subject"])
-        #expect(recommendation.developSettings.exposure2012 == "+0.35")
+        #expect(recommendation.suggestions == [
+            "Exposure: +0.25", "Highlights: -24", "Shadows: 15", "White balance: As Shot"
+        ])
+        #expect(recommendation.developSettings.exposure2012 == "+0.25")
         #expect(recommendation.developSettings.highlights2012 == -24)
-        #expect(recommendation.developSettings.shadows2012 == 30)
-        #expect(recommendation.developSettings.whiteBalance == "Daylight")
+        #expect(recommendation.developSettings.shadows2012 == 15)
+        #expect(recommendation.developSettings.whiteBalance == "As Shot")
     }
 
     @Test func xmpSidecarContainsRatingAndDevelopCorrections() {
@@ -715,10 +720,30 @@ struct ScoringTests {
         let xmp = XMPBuilder().sidecar(for: photo)
         #expect(xmp.contains("xmp:Rating=\"4\""))
         #expect(xmp.contains("crs:HasSettings=\"True\""))
-        #expect(xmp.contains("crs:Exposure2012=\"+0.35\""))
+        #expect(xmp.contains("crs:Exposure2012=\"+0.25\""))
         #expect(xmp.contains("crs:Highlights2012=\"-25\""))
-        #expect(xmp.contains("crs:WhiteBalance=\"Cloudy\""))
-        #expect(xmp.contains("Lift shadows on the face"))
+        #expect(xmp.contains("crs:WhiteBalance=\"As Shot\""))
+        #expect(xmp.contains("Lightroom: Exposure: +0.25 · Highlights: -25 · White balance: As Shot"))
+        #expect(!xmp.contains("Lift shadows on the face"))
+    }
+
+    @Test func xmpSidecarSanitizesPreviouslyStoredAggressiveCorrections() {
+        var photo = samplePhoto(composite: 8.2, filename: "IMG_1.CR3")
+        photo.score.developSettings = DevelopSettings(
+            exposure2012: "+1.20", highlights2012: -80, shadows2012: 65,
+            whites2012: 40, blacks2012: 40, clarity2012: 30, vibrance: 35,
+            saturation: 25, luminanceSmoothing: 80, colorNoiseReduction: 90,
+            whiteBalance: "Shade"
+        )
+
+        let xmp = XMPBuilder().sidecar(for: photo)
+        #expect(xmp.contains("crs:Exposure2012=\"+0.25\""))
+        #expect(xmp.contains("crs:Highlights2012=\"-25\""))
+        #expect(xmp.contains("crs:Shadows2012=\"15\""))
+        #expect(xmp.contains("crs:Vibrance=\"10\""))
+        #expect(!xmp.contains("crs:Blacks2012"))
+        #expect(xmp.contains("crs:WhiteBalance=\"As Shot\""))
+        #expect(!xmp.contains("Shade"))
     }
 
     @Test func scoreRecordPersistsGeneratedLightroomSettings() throws {

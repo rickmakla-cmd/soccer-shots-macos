@@ -206,12 +206,16 @@ enum EvidencePrompt {
 
     Also recommend only the Lightroom Classic corrections visibly needed. Use 1-5 concise suggestions.
     The develop_settings object is written directly to an Adobe Camera Raw XMP sidecar. Omit controls that should stay at their defaults.
-    Allowed develop_settings fields and ranges:
-    Exposure2012: string from "-5.00" to "+5.00"
-    Highlights2012, Shadows2012, Whites2012, Blacks2012, Clarity2012, Vibrance, Saturation: integer -100 to 100
-    LuminanceSmoothing, ColorNoiseReduction: integer 0 to 100
-    WhiteBalance: "As Shot", "Auto", "Daylight", "Cloudy", "Shade", "Tungsten", "Fluorescent", or "Flash"
-    Use conservative corrections. Mention a crop only in suggestions because crop coordinates are not part of develop_settings.
+    Allowed develop_settings fields and automation-safe ranges:
+    Exposure2012: string from "-0.25" to "+0.25"
+    Highlights2012: integer -25 to 25
+    Shadows2012: integer -20 to 20
+    Whites2012, Blacks2012: integer -15 to 15
+    Clarity2012, Vibrance: integer -10 to 10
+    Saturation: integer -5 to 5
+    LuminanceSmoothing, ColorNoiseReduction: integer 0 to 40
+    WhiteBalance: "As Shot" only
+    Judge every photo independently, and return empty suggestions/settings when no correction is visibly needed. Do not infer white balance from weather or label overcast daylight as Shade or Cloudy. Avoid combining positive Exposure, strongly lifted Shadows, and positive Blacks because it produces flat, washed-out images. Mention a crop only in suggestions because crop coordinates are not part of develop_settings.
 
     Return JSON only in this exact shape, using 1-3 short factual observations:
     {
@@ -261,8 +265,14 @@ struct EvidenceParser: Sendable {
             if object["observations"] == nil { object["observations"] = [] }
             let normalized = try JSONSerialization.data(withJSONObject: object)
             var evidence = try JSONDecoder().decode(PhotoEvidence.self, from: normalized)
-            evidence.lightroomSuggestions = evidence.lightroomSuggestions.map { Array($0.prefix(5)) }
-            evidence.developSettings = evidence.developSettings?.normalizedForLightroom()
+            let normalizedSettings = evidence.developSettings?.normalizedForLightroom()
+            evidence.developSettings = normalizedSettings
+            let originalSuggestions = evidence.lightroomSuggestions ?? []
+            evidence.lightroomSuggestions = normalizedSettings?.alignedSuggestions(
+                preserving: originalSuggestions
+            ) ?? Array(originalSuggestions.filter {
+                $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased().hasPrefix("crop")
+            }.prefix(5))
             return evidence
         } catch {
             throw SoccerShotsError.message("The evidence model returned invalid evidence: \(Self.decoderDetail(error))")

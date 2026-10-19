@@ -72,27 +72,57 @@ struct DevelopSettings: Codable, Equatable, Sendable {
     func normalizedForLightroom() -> DevelopSettings {
         var result = self
         if let exposure = exposure2012.flatMap(Double.init) {
-            result.exposure2012 = String(format: "%+.2f", min(5, max(-5, exposure)))
+            result.exposure2012 = String(format: "%+.2f", min(0.25, max(-0.25, exposure)))
         } else {
             result.exposure2012 = nil
         }
-        result.highlights2012 = highlights2012.map { min(100, max(-100, $0)) }
-        result.shadows2012 = shadows2012.map { min(100, max(-100, $0)) }
-        result.whites2012 = whites2012.map { min(100, max(-100, $0)) }
-        result.blacks2012 = blacks2012.map { min(100, max(-100, $0)) }
-        result.clarity2012 = clarity2012.map { min(100, max(-100, $0)) }
-        result.vibrance = vibrance.map { min(100, max(-100, $0)) }
-        result.saturation = saturation.map { min(100, max(-100, $0)) }
-        result.luminanceSmoothing = luminanceSmoothing.map { min(100, max(0, $0)) }
-        result.colorNoiseReduction = colorNoiseReduction.map { min(100, max(0, $0)) }
-        let allowedWhiteBalances = ["As Shot", "Auto", "Daylight", "Cloudy", "Shade", "Tungsten", "Fluorescent", "Flash"]
-        if let whiteBalance,
-           let canonical = allowedWhiteBalances.first(where: { $0.caseInsensitiveCompare(whiteBalance) == .orderedSame }) {
-            result.whiteBalance = canonical
-        } else {
-            result.whiteBalance = nil
+        result.highlights2012 = highlights2012.map { min(25, max(-25, $0)) }
+        result.shadows2012 = shadows2012.map { min(20, max(-20, $0)) }
+        result.whites2012 = whites2012.map { min(15, max(-15, $0)) }
+        result.blacks2012 = blacks2012.map { min(15, max(-15, $0)) }
+        result.clarity2012 = clarity2012.map { min(10, max(-10, $0)) }
+        result.vibrance = vibrance.map { min(10, max(-10, $0)) }
+        result.saturation = saturation.map { min(5, max(-5, $0)) }
+        result.luminanceSmoothing = luminanceSmoothing.map { min(40, max(0, $0)) }
+        result.colorNoiseReduction = colorNoiseReduction.map { min(40, max(0, $0)) }
+
+        if let exposure = result.exposure2012.flatMap(Double.init), exposure > 0,
+           let shadows = result.shadows2012, shadows > 15 {
+            result.shadows2012 = 15
         }
+        if let exposure = result.exposure2012.flatMap(Double.init), exposure > 0,
+           let shadows = result.shadows2012, shadows > 0,
+           let blacks = result.blacks2012, blacks > 0 {
+            result.blacks2012 = nil
+        }
+
+        // A rendered preview cannot provide the camera's raw temperature and tint.
+        // Preserve that per-photo metadata instead of guessing a warmer preset from weather.
+        result.whiteBalance = whiteBalance == nil ? nil : "As Shot"
         return result
+    }
+
+    var lightroomSettingSummaries: [String] {
+        var values: [String] = []
+        if let value = exposure2012 { values.append("Exposure: \(value)") }
+        if let value = highlights2012 { values.append("Highlights: \(value)") }
+        if let value = shadows2012 { values.append("Shadows: \(value)") }
+        if let value = whites2012 { values.append("Whites: \(value)") }
+        if let value = blacks2012 { values.append("Blacks: \(value)") }
+        if let value = clarity2012 { values.append("Clarity: \(value)") }
+        if let value = vibrance { values.append("Vibrance: \(value)") }
+        if let value = saturation { values.append("Saturation: \(value)") }
+        if let value = luminanceSmoothing { values.append("Luminance noise reduction: \(value)") }
+        if let value = colorNoiseReduction { values.append("Color noise reduction: \(value)") }
+        if let value = whiteBalance { values.append("White balance: \(value)") }
+        return values
+    }
+
+    func alignedSuggestions(preserving suggestions: [String]) -> [String] {
+        let cropSuggestions = suggestions.filter {
+            $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased().hasPrefix("crop")
+        }
+        return Array((lightroomSettingSummaries + cropSuggestions).prefix(5))
     }
 
     enum CodingKeys: String, CodingKey {

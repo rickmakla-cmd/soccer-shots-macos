@@ -296,6 +296,18 @@ final class AppModel: ObservableObject {
                     }
                 }
 
+                for photo in photos {
+                    guard let index = completedScores.firstIndex(where: { $0.id == photo.id }) else { continue }
+                    let settings = completedScores[index].score.developSettings.normalizedForLightroom()
+                    completedScores[index].score.developSettings = settings
+                    completedScores[index].score.lightroomSuggestions = settings.alignedSuggestions(
+                        preserving: completedScores[index].score.lightroomSuggestions
+                    )
+                    if let record = try record(for: photo.fileURL.path, modelContext: modelContext) {
+                        try record.setScore(completedScores[index].score)
+                    }
+                }
+
                 try saveScoreChanges(in: modelContext)
                 persistSession()
                 let selectedIDs = Set(photos.map(\.id))
