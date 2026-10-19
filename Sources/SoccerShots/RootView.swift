@@ -69,13 +69,13 @@ struct RootView: View {
                     }
                 }
                 if !model.completedScores.isEmpty {
-                    Section("Resolve Studio") {
+                    Section("Export") {
                         Button {
-                            model.sendSelectedPhotosToResolve()
+                            model.exportSelectedPhotos(modelContext: modelContext)
                         } label: {
                             Label(
-                                "Send \(model.selectedForExport.count) Selected to Resolve…",
-                                systemImage: "photo.on.rectangle.angled"
+                                "Export \(model.selectedForExport.count) Selected + XMP…",
+                                systemImage: "square.and.arrow.up"
                             )
                         }
                         .disabled(
@@ -83,7 +83,7 @@ struct RootView: View {
                             model.isDeepReviewing || model.isLoadingFolder || model.isExporting
                             || model.isRankingBurst
                         )
-                        .help("Import selected originals and SoccerShots metadata into Resolve Studio")
+                        .help("Copy selected originals and create matching Lightroom XMP sidecars with develop corrections")
 
                         if model.isExporting {
                             VStack(alignment: .leading, spacing: 6) {
@@ -93,10 +93,16 @@ struct RootView: View {
                                     .foregroundStyle(.secondary)
                                     .lineLimit(2)
                             }
-                            Button("Cancel Transfer", role: .cancel) { model.cancelExport() }
+                            Button("Cancel Export", role: .cancel) { model.cancelExport() }
                         }
 
-                        Text("Imports originals into the open Resolve Studio project, organizes them by culling category, and adds ratings and score details.")
+                        if model.lastExportFolder != nil, !model.isExporting {
+                            Button("Show Last Export in Finder", systemImage: "folder.badge.gearshape") {
+                                model.revealLastExport()
+                            }
+                        }
+
+                        Text("Copies selected originals with matching Lightroom Classic XMP sidecars. Missing develop corrections are generated and saved before export.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }

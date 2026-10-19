@@ -84,6 +84,27 @@ actor LocalEvidenceService {
         )
     }
 
+    func recommendLightroomEdits(
+        photoURL: URL,
+        progress: @Sendable @escaping (String) -> Void
+    ) async throws -> LightroomRecommendation {
+        try Task.checkCancellation()
+        progress("Preparing Lightroom corrections…")
+        let prepared = try await preparer.prepare(photoURL)
+        let model = try await loadModel(progress: progress)
+        progress("Generating Lightroom corrections…")
+        let session = ChatSession(
+            model,
+            generateParameters: .init(maxTokens: 500, temperature: 0),
+            additionalContext: ["enable_thinking": false]
+        )
+        let response = try await session.respond(
+            to: LightroomRecommendationPrompt.text,
+            images: [.ciImage(prepared.ciImage)], videos: [], audios: []
+        )
+        return try LightroomRecommendationParser().parse(response)
+    }
+
     func verifyVision(progress: @Sendable @escaping (String) -> Void) async throws {
         progress("Verifying image input…")
         let model = try await loadModel(progress: progress)

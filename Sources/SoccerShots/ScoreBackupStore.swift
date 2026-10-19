@@ -93,12 +93,23 @@ struct ScoreBackupStore {
     @discardableResult
     func restoreIfEmpty(in context: ModelContext) throws -> Int {
         guard try context.fetchCount(FetchDescriptor<ScoreRecord>()) == 0 else { return 0 }
+        return try restoreMissingRecords(in: context)
+    }
+
+    /// Reconciles a partially populated SwiftData store with the authoritative
+    /// portable backup. A prior app version could create the app-specific store
+    /// with older records, which meant `restoreIfEmpty` skipped newer scores and
+    /// then replaced their backup with the incomplete store.
+    @discardableResult
+    func restoreMissingRecords(in context: ModelContext) throws -> Int {
         guard let envelope = try loadFirstValidBackup(), !envelope.records.isEmpty else { return 0 }
 
+        let existingPaths = Set(try context.fetch(FetchDescriptor<ScoreRecord>()).map(\.filepath))
         var snapshotsByPath: [String: ScoreRecordSnapshot] = [:]
-        for snapshot in envelope.records {
+        for snapshot in envelope.records where !existingPaths.contains(snapshot.filepath) {
             snapshotsByPath[snapshot.filepath] = snapshot
         }
+        guard !snapshotsByPath.isEmpty else { return 0 }
         for snapshot in snapshotsByPath.values {
             context.insert(ScoreRecord(snapshot: snapshot))
         }

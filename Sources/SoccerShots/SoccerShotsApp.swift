@@ -38,7 +38,7 @@ struct SoccerShotsApp: App {
         modelContainer = container
 
         do {
-            let restored = try backupStore.restoreIfEmpty(in: container.mainContext)
+            let restored = try backupStore.restoreMissingRecords(in: container.mainContext)
             let records = try container.mainContext.fetch(FetchDescriptor<ScoreRecord>())
             if !records.isEmpty {
                 try backupStore.save(records: records)

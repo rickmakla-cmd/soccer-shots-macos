@@ -62,6 +62,39 @@ struct DevelopSettings: Codable, Equatable, Sendable {
     var colorNoiseReduction: Int? = nil
     var whiteBalance: String? = nil
 
+    var isEmpty: Bool {
+        exposure2012 == nil && highlights2012 == nil && shadows2012 == nil
+            && whites2012 == nil && blacks2012 == nil && clarity2012 == nil
+            && vibrance == nil && saturation == nil && luminanceSmoothing == nil
+            && colorNoiseReduction == nil && whiteBalance == nil
+    }
+
+    func normalizedForLightroom() -> DevelopSettings {
+        var result = self
+        if let exposure = exposure2012.flatMap(Double.init) {
+            result.exposure2012 = String(format: "%+.2f", min(5, max(-5, exposure)))
+        } else {
+            result.exposure2012 = nil
+        }
+        result.highlights2012 = highlights2012.map { min(100, max(-100, $0)) }
+        result.shadows2012 = shadows2012.map { min(100, max(-100, $0)) }
+        result.whites2012 = whites2012.map { min(100, max(-100, $0)) }
+        result.blacks2012 = blacks2012.map { min(100, max(-100, $0)) }
+        result.clarity2012 = clarity2012.map { min(100, max(-100, $0)) }
+        result.vibrance = vibrance.map { min(100, max(-100, $0)) }
+        result.saturation = saturation.map { min(100, max(-100, $0)) }
+        result.luminanceSmoothing = luminanceSmoothing.map { min(100, max(0, $0)) }
+        result.colorNoiseReduction = colorNoiseReduction.map { min(100, max(0, $0)) }
+        let allowedWhiteBalances = ["As Shot", "Auto", "Daylight", "Cloudy", "Shade", "Tungsten", "Fluorescent", "Flash"]
+        if let whiteBalance,
+           let canonical = allowedWhiteBalances.first(where: { $0.caseInsensitiveCompare(whiteBalance) == .orderedSame }) {
+            result.whiteBalance = canonical
+        } else {
+            result.whiteBalance = nil
+        }
+        return result
+    }
+
     enum CodingKeys: String, CodingKey {
         case exposure2012 = "Exposure2012"
         case highlights2012 = "Highlights2012"

@@ -85,6 +85,10 @@ final class ScoreRecord {
         deepReviewData = try review.map { try JSONEncoder().encode($0) }
     }
 
+    func setScore(_ score: PhotoScore) throws {
+        scoreData = try JSONEncoder().encode(score)
+    }
+
     func setBenchmarkResult(_ result: ModelBenchmarkResult?) throws {
         benchmarkData = try result.map { try JSONEncoder().encode($0) }
     }

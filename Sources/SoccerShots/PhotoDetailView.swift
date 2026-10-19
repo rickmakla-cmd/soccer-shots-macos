@@ -148,7 +148,7 @@ struct PhotoDetailView: View {
     }
 
     private var suggestions: some View {
-        GroupBox("Resolve Studio suggestions") {
+        GroupBox("Lightroom suggestions") {
             VStack(alignment: .leading, spacing: 8) {
                 ForEach(current.score.lightroomSuggestions, id: \.self) { suggestion in
                     Label(suggestion, systemImage: "slider.horizontal.3")
@@ -271,12 +271,12 @@ struct PhotoDetailView: View {
                             .foregroundStyle(.red)
                     }
                     if !result.score.lightroomSuggestions.isEmpty {
-                        Text("Gemini Resolve Studio suggestions").font(.headline)
+                        Text("Gemini Lightroom suggestions").font(.headline)
                         ForEach(result.score.lightroomSuggestions, id: \.self) { suggestion in
                             Label(suggestion, systemImage: "slider.horizontal.3")
                         }
                     }
-                    Text("This result is stored separately and has not changed the Gemma keeper, rejection, or export decision.")
+                    Text("This result is stored separately and has not changed the Primary keeper, rejection, or export decision.")
                         .font(.callout).foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)

@@ -466,6 +466,17 @@ struct ScoringTests {
         #expect(evidence.exposureQuality == .good)
     }
 
+    @Test func evidenceCorrectionsFlowIntoRuleBasedScoreWithoutChangingCompositeInputs() throws {
+        let json = #"{"primary_subject":"player","face_visibility":"profile","face_sharpness":"usable","subject_scale":"medium","action_moment":"strong","ball_relevance":"relevant","emotion":"visible","foreground_obstruction":"none","background_clutter":"minor","exposure_quality":"recoverable","confidence":0.9,"observations":[],"lightroom_suggestions":["Lift the subject"],"develop_settings":{"Exposure2012":"0.40","Shadows2012":30}}"#
+        let evidence = try EvidenceParser().parse(json)
+        let score = EvidenceRuleEngine().score(evidence)
+
+        #expect(score.lightroomSuggestions == ["Lift the subject"])
+        #expect(score.developSettings.exposure2012 == "+0.40")
+        #expect(score.developSettings.shadows2012 == 30)
+        #expect(score.composite > 0)
+    }
+
     @Test func evidenceVisionProbeAcceptsNaturalColorNamesAndFormatting() {
         #expect(EvidenceVisionProbe.passes("LEFT=pink; RIGHT=bright yellow"))
         #expect(EvidenceVisionProbe.passes(#"{"left":"purple","right":"gold"}"#))
@@ -641,6 +652,65 @@ struct ScoringTests {
         photo.manualReviewLabel = .reject
         let record = try ScoreRecord(photo: photo)
         #expect(record.manualReviewLabelRaw == ManualReviewLabel.reject.rawValue)
+    }
+
+    @Test func lightroomRecommendationParserNormalizesSupportedSettings() throws {
+        let recommendation = try LightroomRecommendationParser().parse(#"""
+        ```json
+        {
+          "lightroom_suggestions": ["Lift the subject", "Recover jersey highlights"],
+          "develop_settings": {
+            "Exposure2012": "6.2",
+            "Highlights2012": -140,
+            "Shadows2012": 35,
+            "LuminanceSmoothing": -5,
+            "WhiteBalance": "cloudy"
+          }
+        }
+        ```
+        """#)
+
+        #expect(recommendation.suggestions.count == 2)
+        #expect(recommendation.developSettings.exposure2012 == "+5.00")
+        #expect(recommendation.developSettings.highlights2012 == -100)
+        #expect(recommendation.developSettings.shadows2012 == 35)
+        #expect(recommendation.developSettings.luminanceSmoothing == 0)
+        #expect(recommendation.developSettings.whiteBalance == "Cloudy")
+    }
+
+    @Test func lightroomRecommendationParserToleratesOmittedOptionalSections() throws {
+        let recommendation = try LightroomRecommendationParser().parse("{}")
+
+        #expect(recommendation.suggestions.isEmpty)
+        #expect(recommendation.developSettings.isEmpty)
+    }
+
+    @Test func xmpSidecarContainsRatingAndDevelopCorrections() {
+        var photo = samplePhoto(composite: 8.2, filename: "IMG_1.CR3")
+        photo.score.lightroomSuggestions = ["Lift shadows on the face"]
+        photo.score.developSettings.exposure2012 = "+0.35"
+        photo.score.developSettings.highlights2012 = -25
+        photo.score.developSettings.whiteBalance = "Cloudy"
+
+        let xmp = XMPBuilder().sidecar(for: photo)
+        #expect(xmp.contains("xmp:Rating=\"4\""))
+        #expect(xmp.contains("crs:HasSettings=\"True\""))
+        #expect(xmp.contains("crs:Exposure2012=\"+0.35\""))
+        #expect(xmp.contains("crs:Highlights2012=\"-25\""))
+        #expect(xmp.contains("crs:WhiteBalance=\"Cloudy\""))
+        #expect(xmp.contains("Lift shadows on the face"))
+    }
+
+    @Test func scoreRecordPersistsGeneratedLightroomSettings() throws {
+        var photo = samplePhoto(composite: 8.0)
+        let record = try ScoreRecord(photo: photo)
+        photo.score.developSettings.exposure2012 = "+0.25"
+        photo.score.lightroomSuggestions = ["Lift exposure slightly"]
+
+        try record.setScore(photo.score)
+
+        #expect(record.score?.developSettings.exposure2012 == "+0.25")
+        #expect(record.score?.lightroomSuggestions == ["Lift exposure slightly"])
     }
 
     private func discoveredPhoto(_ filename: String, captureDate: Date) -> DiscoveredPhoto {

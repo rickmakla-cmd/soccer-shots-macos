@@ -128,6 +128,8 @@ struct PhotoEvidence: Codable, Equatable, Sendable {
     let exposureQuality: ExposureQuality
     let confidence: Double
     let observations: [String]
+    var lightroomSuggestions: [String]? = nil
+    var developSettings: DevelopSettings? = nil
 
     enum CodingKeys: String, CodingKey {
         case primarySubject = "primary_subject"
@@ -148,6 +150,8 @@ struct PhotoEvidence: Codable, Equatable, Sendable {
         case subjectIsolation = "subject_isolation"
         case exposureQuality = "exposure_quality"
         case confidence, observations
+        case lightroomSuggestions = "lightroom_suggestions"
+        case developSettings = "develop_settings"
     }
 }
 
@@ -163,7 +167,7 @@ struct EvidenceBenchmarkResult: Codable, Equatable, Sendable {
 enum EvidencePrompt {
     static let version = "evidence-v3"
     static let text = #"""
-    Inspect this youth soccer photograph as evidence. Do not assign quality scores and do not suggest edits.
+    Inspect this youth soccer photograph as evidence. Do not assign quality scores.
     The image is the complete frame. Judge framing, empty space, clutter, subject isolation, and the primary subject from that frame.
 
     Identify the primary photographic subject: the person who is largest, sharpest, or carrying the visual story.
@@ -200,6 +204,15 @@ enum EvidencePrompt {
     exposure_quality: good | recoverable | poor | indeterminate
     confidence: number from 0.0 to 1.0
 
+    Also recommend only the Lightroom Classic corrections visibly needed. Use 1-5 concise suggestions.
+    The develop_settings object is written directly to an Adobe Camera Raw XMP sidecar. Omit controls that should stay at their defaults.
+    Allowed develop_settings fields and ranges:
+    Exposure2012: string from "-5.00" to "+5.00"
+    Highlights2012, Shadows2012, Whites2012, Blacks2012, Clarity2012, Vibrance, Saturation: integer -100 to 100
+    LuminanceSmoothing, ColorNoiseReduction: integer 0 to 100
+    WhiteBalance: "As Shot", "Auto", "Daylight", "Cloudy", "Shade", "Tungsten", "Fluorescent", or "Flash"
+    Use conservative corrections. Mention a crop only in suggestions because crop coordinates are not part of develop_settings.
+
     Return JSON only in this exact shape, using 1-3 short factual observations:
     {
       "primary_subject": "short visual description",
@@ -220,7 +233,9 @@ enum EvidencePrompt {
       "subject_isolation": "allowed value",
       "exposure_quality": "allowed value",
       "confidence": 0.0,
-      "observations": ["visible fact"]
+      "observations": ["visible fact"],
+      "lightroom_suggestions": ["Exposure: +0.35 — lift the subject slightly"],
+      "develop_settings": {"Exposure2012": "+0.35"}
     }
     """#
 }
@@ -245,7 +260,10 @@ struct EvidenceParser: Sendable {
             if object["confidence"] == nil { object["confidence"] = 0.0 }
             if object["observations"] == nil { object["observations"] = [] }
             let normalized = try JSONSerialization.data(withJSONObject: object)
-            return try JSONDecoder().decode(PhotoEvidence.self, from: normalized)
+            var evidence = try JSONDecoder().decode(PhotoEvidence.self, from: normalized)
+            evidence.lightroomSuggestions = evidence.lightroomSuggestions.map { Array($0.prefix(5)) }
+            evidence.developSettings = evidence.developSettings?.normalizedForLightroom()
+            return evidence
         } catch {
             throw SoccerShotsError.message("The evidence model returned invalid evidence: \(Self.decoderDetail(error))")
         }
@@ -319,8 +337,8 @@ struct EvidenceRuleEngine: Sendable {
             composition: composition,
             convergence: convergence,
             composite: 0,
-            lightroomSuggestions: [],
-            developSettings: .init(),
+            lightroomSuggestions: evidence.lightroomSuggestions ?? [],
+            developSettings: evidence.developSettings ?? .init(),
             keepRecommendation: false,
             rejectReason: nil,
             jerseyNumber: nil,

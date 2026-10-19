@@ -72,6 +72,25 @@ struct ScoreBackupStoreTests {
         #expect(records[0].filepath == "/live.CR3")
     }
 
+    @Test func reconcilesMissingBackupRecordsIntoPartiallyPopulatedStore() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("SoccerShotsBackupTests-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let backupStore = ScoreBackupStore(directoryURL: root)
+        let existing = sampleSnapshot(path: "/photos/existing.CR3")
+        let missing = sampleSnapshot(path: "/photos/missing.CR3")
+        try backupStore.save(snapshots: [existing, missing])
+
+        let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: ScoreRecord.self, configurations: configuration)
+        container.mainContext.insert(ScoreRecord(snapshot: existing))
+        try container.mainContext.save()
+
+        #expect(try backupStore.restoreMissingRecords(in: container.mainContext) == 1)
+        let records = try container.mainContext.fetch(FetchDescriptor<ScoreRecord>())
+        #expect(Set(records.map(\.filepath)) == [existing.filepath, missing.filepath])
+    }
+
     @Test func intentionalEmptyStateDoesNotResurrectResetScores() throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("SoccerShotsBackupTests-\(UUID().uuidString)", isDirectory: true)
