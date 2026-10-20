@@ -602,13 +602,19 @@ struct LocalThumbnail: View {
         .task(id: "\(url.path)|\(maxPixelSize)") {
             image = nil
             didFail = false
+            if loadingLane == .foreground {
+                image = ThumbnailImageCache.shared.bestAvailableImage(
+                    for: url,
+                    upTo: maxPixelSize
+                )
+            }
             let loader = loadingLane == .foreground
                 ? ThumbnailLoader.foreground
                 : ThumbnailLoader.gallery
             let loaded = await loader.image(for: url, maxPixelSize: maxPixelSize)
             guard !Task.isCancelled else { return }
-            image = loaded
-            didFail = loaded == nil
+            if let loaded { image = loaded }
+            didFail = image == nil
         }
     }
 }
@@ -623,22 +629,16 @@ enum ThumbnailLoadingLane {
 /// which was easy to trigger by changing a gallery filter. Foreground previews
 /// use a separate lane so they cannot wait behind the gallery's decode backlog.
 private actor ThumbnailLoader {
-    static let gallery = ThumbnailLoader(countLimit: 256, totalCostLimit: 96 * 1_024 * 1_024)
-    static let foreground = ThumbnailLoader(countLimit: 8, totalCostLimit: 48 * 1_024 * 1_024)
+    static let gallery = ThumbnailLoader()
+    static let foreground = ThumbnailLoader()
 
-    private let cache = NSCache<NSString, NSImage>()
-
-    private init(countLimit: Int, totalCostLimit: Int) {
-        // NSCache sheds images automatically under model or system memory
-        // pressure. This is enough to avoid repeatedly decoding visible cards.
-        cache.countLimit = countLimit
-        cache.totalCostLimit = totalCostLimit
-    }
+    private init() {}
 
     func image(for url: URL, maxPixelSize: Int) async -> NSImage? {
         guard !Task.isCancelled else { return nil }
-        let key = "\(url.path)|\(maxPixelSize)" as NSString
-        if let cached = cache.object(forKey: key) { return cached }
+        if let cached = ThumbnailImageCache.shared.image(for: url, maxPixelSize: maxPixelSize) {
+            return cached
+        }
 
         let image: NSImage?
         do {
@@ -649,8 +649,43 @@ private actor ThumbnailLoader {
         }
 
         guard !Task.isCancelled, let image else { return nil }
-        let cost = max(1, Int(image.size.width * image.size.height * 4))
-        cache.setObject(image, forKey: key, cost: cost)
+        ThumbnailImageCache.shared.store(image, for: url, maxPixelSize: maxPixelSize)
         return image
+    }
+}
+
+/// Both loading lanes share completed previews. A detail view can therefore
+/// show the gallery's already-rendered image immediately while its larger RAW
+/// preview is decoded, instead of leaving an indefinite activity indicator.
+private final class ThumbnailImageCache: @unchecked Sendable {
+    static let shared = ThumbnailImageCache()
+
+    private let cache = NSCache<NSString, NSImage>()
+    private let knownPixelSizes = [2_400, 1_800, 600, 240]
+
+    private init() {
+        cache.countLimit = 320
+        cache.totalCostLimit = 144 * 1_024 * 1_024
+    }
+
+    func image(for url: URL, maxPixelSize: Int) -> NSImage? {
+        cache.object(forKey: key(for: url, maxPixelSize: maxPixelSize))
+    }
+
+    func bestAvailableImage(for url: URL, upTo maxPixelSize: Int) -> NSImage? {
+        if let exact = image(for: url, maxPixelSize: maxPixelSize) { return exact }
+        for pixelSize in knownPixelSizes where pixelSize < maxPixelSize {
+            if let image = image(for: url, maxPixelSize: pixelSize) { return image }
+        }
+        return nil
+    }
+
+    func store(_ image: NSImage, for url: URL, maxPixelSize: Int) {
+        let cost = max(1, Int(image.size.width * image.size.height * 4))
+        cache.setObject(image, forKey: key(for: url, maxPixelSize: maxPixelSize), cost: cost)
+    }
+
+    private func key(for url: URL, maxPixelSize: Int) -> NSString {
+        "\(url.path)|\(maxPixelSize)" as NSString
     }
 }
