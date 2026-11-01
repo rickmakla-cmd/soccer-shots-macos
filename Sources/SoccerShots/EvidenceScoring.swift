@@ -263,6 +263,7 @@ struct EvidenceParser: Sendable {
             if object["primary_subject"] == nil { object["primary_subject"] = "" }
             if object["confidence"] == nil { object["confidence"] = 0.0 }
             if object["observations"] == nil { object["observations"] = [] }
+            Self.normalizeDevelopSettings(in: &object)
             let normalized = try JSONSerialization.data(withJSONObject: object)
             var evidence = try JSONDecoder().decode(PhotoEvidence.self, from: normalized)
             let normalizedSettings = evidence.developSettings?.normalizedForLightroom()
@@ -277,6 +278,50 @@ struct EvidenceParser: Sendable {
         } catch {
             throw SoccerShotsError.message("The evidence model returned invalid evidence: \(Self.decoderDetail(error))")
         }
+    }
+
+    private static func normalizeDevelopSettings(in object: inout [String: Any]) {
+        guard let rawSettings = object["develop_settings"] as? [String: Any] else { return }
+        let canonicalKeys = [
+            "exposure2012": "Exposure2012",
+            "highlights2012": "Highlights2012",
+            "shadows2012": "Shadows2012",
+            "whites2012": "Whites2012",
+            "blacks2012": "Blacks2012",
+            "clarity2012": "Clarity2012",
+            "vibrance": "Vibrance",
+            "saturation": "Saturation",
+            "luminancesmoothing": "LuminanceSmoothing",
+            "colornoisereduction": "ColorNoiseReduction",
+            "whitebalance": "WhiteBalance"
+        ]
+        let integerKeys = Set([
+            "Highlights2012", "Shadows2012", "Whites2012", "Blacks2012",
+            "Clarity2012", "Vibrance", "Saturation", "LuminanceSmoothing",
+            "ColorNoiseReduction"
+        ])
+        var settings: [String: Any] = [:]
+
+        for (rawKey, value) in rawSettings {
+            guard let key = canonicalKeys[rawKey.lowercased()] else { continue }
+            if integerKeys.contains(key) {
+                if let number = value as? NSNumber {
+                    settings[key] = Int(number.doubleValue.rounded())
+                } else if let string = value as? String,
+                          let number = Double(string.trimmingCharacters(in: .whitespacesAndNewlines)) {
+                    settings[key] = Int(number.rounded())
+                }
+            } else if key == "Exposure2012" {
+                if let string = value as? String {
+                    settings[key] = string
+                } else if let number = value as? NSNumber {
+                    settings[key] = number.stringValue
+                }
+            } else if key == "WhiteBalance", let string = value as? String {
+                settings[key] = string
+            }
+        }
+        object["develop_settings"] = settings
     }
 
     private static func decoderDetail(_ error: Error) -> String {

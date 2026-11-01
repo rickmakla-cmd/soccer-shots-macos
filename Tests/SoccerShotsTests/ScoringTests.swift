@@ -467,12 +467,13 @@ struct ScoringTests {
     }
 
     @Test func evidenceCorrectionsFlowIntoRuleBasedScoreWithoutChangingCompositeInputs() throws {
-        let json = #"{"primary_subject":"player","face_visibility":"profile","face_sharpness":"usable","subject_scale":"medium","action_moment":"strong","ball_relevance":"relevant","emotion":"visible","foreground_obstruction":"none","background_clutter":"minor","exposure_quality":"recoverable","confidence":0.9,"observations":[],"lightroom_suggestions":["Lift the subject"],"develop_settings":{"Exposure2012":"0.40","Shadows2012":30}}"#
+        let json = #"{"primary_subject":"player","face_visibility":"profile","face_sharpness":"usable","subject_scale":"medium","action_moment":"strong","ball_relevance":"relevant","emotion":"visible","foreground_obstruction":"none","background_clutter":"minor","exposure_quality":"recoverable","confidence":0.9,"observations":[],"lightroom_suggestions":["Lift the subject"],"develop_settings":{"Exposure2012":0.40,"Highlights2012":"-20","Shadows2012":"30.0"}}"#
         let evidence = try EvidenceParser().parse(json)
         let score = EvidenceRuleEngine().score(evidence)
 
-        #expect(score.lightroomSuggestions == ["Exposure: +0.25", "Shadows: 15"])
+        #expect(score.lightroomSuggestions == ["Exposure: +0.25", "Highlights: -20", "Shadows: 15"])
         #expect(score.developSettings.exposure2012 == "+0.25")
+        #expect(score.developSettings.highlights2012 == -20)
         #expect(score.developSettings.shadows2012 == 15)
         #expect(score.composite > 0)
     }
