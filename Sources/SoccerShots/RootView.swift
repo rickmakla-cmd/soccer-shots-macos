@@ -315,6 +315,9 @@ private struct ScoreGallery: View {
                         ForEach(GallerySort.allCases) { Text($0.rawValue).tag($0) }
                     }
                 } label: { Label(model.gallerySort.rawValue, systemImage: "arrow.up.arrow.down") }
+                Toggle("Best from Bursts", isOn: $model.showBestBurstFramesOnly)
+                    .toggleStyle(.button)
+                    .help("Show the highest-scored frame from each burst; other photos remain available in Compare Bursts")
                 Button {
                     isShowingBurstComparison = true
                 } label: {
@@ -401,8 +404,13 @@ private struct ScoreGallery: View {
             }
         }
         .sheet(isPresented: $isShowingBurstComparison) {
-            BurstComparisonView(isPresented: $isShowingBurstComparison)
+            BurstComparisonView(isPresented: $isShowingBurstComparison, initialBurstID: selectedBurstIDForReview)
         }
+    }
+
+    private var selectedBurstIDForReview: String? {
+        guard let id = model.selectedPhotoID else { return nil }
+        return model.photoBursts.first { $0.photos.contains(where: { $0.id == id }) }?.id
     }
 
     private var marqueeSelectionGesture: some Gesture {

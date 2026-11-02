@@ -92,7 +92,18 @@ final class AppModel: ObservableObject {
     }
 
     var visiblePhotos: [ScoredPhoto] {
-        let filtered = completedScores.filter(galleryFilter.includes)
+        let galleryPhotos: [ScoredPhoto]
+        if showBestBurstFramesOnly {
+            let bursts = photoBursts
+            let burstIDs = Set(bursts.flatMap { $0.photos.map(\.id) })
+            let bestIDs = Set(bursts.compactMap { burst in
+                burst.photos.max { $0.score.composite < $1.score.composite }?.id
+            })
+            galleryPhotos = completedScores.filter { !burstIDs.contains($0.id) || bestIDs.contains($0.id) }
+        } else {
+            galleryPhotos = completedScores
+        }
+        let filtered = galleryPhotos.filter(galleryFilter.includes)
         switch gallerySort {
         case .scoreDescending:
             return filtered.sorted { $0.score.composite > $1.score.composite }
@@ -102,6 +113,8 @@ final class AppModel: ObservableObject {
             return filtered.sorted { $0.filename.localizedStandardCompare($1.filename) == .orderedAscending }
         }
     }
+
+    @Published var showBestBurstFramesOnly = false
 
     var selectedPhoto: ScoredPhoto? {
         guard let selectedPhotoID else { return nil }

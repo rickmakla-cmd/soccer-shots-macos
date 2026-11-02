@@ -5,6 +5,7 @@ struct BurstComparisonView: View {
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var model: AppModel
     @Binding var isPresented: Bool
+    var initialBurstID: String? = nil
     @State private var selectedBurstID: String?
     @FocusState private var acceptsKeyboardInput: Bool
 
@@ -35,7 +36,9 @@ struct BurstComparisonView: View {
         .focused($acceptsKeyboardInput)
         .onAppear {
             acceptsKeyboardInput = true
-            if selectedBurstID == nil, let first = bursts.first { selectBurst(first) }
+            if selectedBurstID == nil, let initial = bursts.first(where: { $0.id == initialBurstID }) ?? bursts.first {
+                selectBurst(initial)
+            }
         }
         .onKeyPress(.leftArrow) { movePhoto(by: -1); return .handled }
         .onKeyPress(.rightArrow) { movePhoto(by: 1); return .handled }

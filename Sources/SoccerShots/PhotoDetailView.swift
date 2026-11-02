@@ -5,6 +5,7 @@ import SwiftUI
 struct PhotoDetailView: View {
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var model: AppModel
+    @State private var isShowingBurstComparison = false
     let photo: ScoredPhoto
     @Binding var isPresented: Bool
 
@@ -34,6 +35,14 @@ struct PhotoDetailView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
                         scoreHeader
+                        if let currentBurst {
+                            Button {
+                                isShowingBurstComparison = true
+                            } label: {
+                                Label("Review Burst · \(currentBurst.photos.count) photos", systemImage: "square.grid.2x2")
+                            }
+                            .help("Open the burst comparison focused on this photo's group")
+                        }
                         manualReview
                         scoreBreakdown
                         suggestions
@@ -48,6 +57,13 @@ struct PhotoDetailView: View {
             }
         }
         .frame(minWidth: 980, minHeight: 700)
+        .sheet(isPresented: $isShowingBurstComparison) {
+            BurstComparisonView(isPresented: $isShowingBurstComparison, initialBurstID: currentBurst?.id)
+        }
+    }
+
+    private var currentBurst: PhotoBurst? {
+        model.photoBursts.first { $0.photos.contains(where: { $0.id == current.id }) }
     }
 
     private var manualReview: some View {
