@@ -9,6 +9,8 @@ final class AppModel: ObservableObject {
     @Published private(set) var completedScores: [ScoredPhoto] = []
     @Published private(set) var progress: ScoringProgress = .idle
     @Published private(set) var isScoring = false
+    @Published private(set) var scoringProcessedCount = 0
+    @Published private(set) var scoringTotalCount = 0
     @Published private(set) var isBenchmarking = false
     @Published private(set) var isDeepReviewing = false
     @Published private(set) var isGeminiBatchRunning = false
@@ -370,6 +372,8 @@ final class AppModel: ObservableObject {
         completedScores = []
         selectedPhotoID = nil
         let photos = discoveredPhotos
+        scoringProcessedCount = 0
+        scoringTotalCount = photos.count
         scoringTask = Task { [weak self] in
             guard let self else { return }
             var completed = 0
@@ -390,6 +394,7 @@ final class AppModel: ObservableObject {
                     completedScores.append(Self.photo(from: cached, score: score))
                     if selectedPhotoID == nil { selectedPhotoID = completedScores.last?.id }
                     completed += 1
+                    scoringProcessedCount = completed + failed
                     persistSession()
                     continue
                 }
@@ -435,6 +440,7 @@ final class AppModel: ObservableObject {
                     failed += 1
                     presentedError = "\(photo.url.lastPathComponent): \(error.localizedDescription)"
                 }
+                scoringProcessedCount = completed + failed
                 progress = .scoring(index: index, total: photos.count, filename: photo.url.lastPathComponent)
             }
             progress = .finished(completed: completed, failed: failed)

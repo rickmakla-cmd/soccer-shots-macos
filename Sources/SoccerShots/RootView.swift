@@ -55,6 +55,15 @@ struct RootView: View {
                         }
                         .disabled(model.isScoring || model.isBenchmarking || model.isLoadingFolder || model.isRankingBurst)
                         if model.isScoring {
+                            VStack(alignment: .leading, spacing: 6) {
+                                ProgressView(
+                                    value: Double(model.scoringProcessedCount),
+                                    total: Double(max(model.scoringTotalCount, 1))
+                                )
+                                Text("\(model.scoringProcessedCount) processed · \(max(0, model.scoringTotalCount - model.scoringProcessedCount)) left")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
                             Button("Cancel after current photo", role: .cancel) { model.cancelScoring() }
                         }
                         if !model.completedScores.isEmpty {
