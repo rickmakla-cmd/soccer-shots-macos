@@ -61,7 +61,7 @@ final class AppModel: ObservableObject {
     private var hasAttemptedSessionRestore = false
     private var staleCachedScoreCount = 0
 
-    private var currentScoringEngine: String { "mlx-evidence:\(localModelID)" }
+    private var currentScoringEngine: String { "linux-evidence:\(LinuxQwenClient.modelID)" }
 
     var staleScoreWarningMessage: String {
         "\(staleCachedScoreCount) cached score\(staleCachedScoreCount == 1 ? " was" : "s were") created by a different scoring engine or scoring version. SoccerShots will not reuse \(staleCachedScoreCount == 1 ? "it" : "them"). Rescore now to replace the stale results with \(localModelDisplayName) using \(EvidencePrompt.version)."
@@ -374,12 +374,83 @@ final class AppModel: ObservableObject {
         let photos = discoveredPhotos
         scoringProcessedCount = 0
         scoringTotalCount = photos.count
+        guard let serverKey = keychain.llmAPIKey(), !serverKey.isEmpty else {
+            isScoring = false
+            presentedError = "Linux Qwen API key is missing from Keychain. Store it under com.rickmakla.SoccerShots.llm-api-key, then try again."
+            return
+        }
         scoringTask = Task { [weak self] in
             guard let self else { return }
             var completed = 0
             var failed = 0
             let existing = (try? modelContext.fetch(FetchDescriptor<ScoreRecord>())) ?? []
             let cachedByPath = Dictionary(uniqueKeysWithValues: existing.map { ($0.filepath, $0) })
+            let batchID = UUID().uuidString.lowercased()
+            let remoteDirectory = "soccershots-batches/\(batchID)"
+            do {
+                try await LinuxQwenClient.runSSH(["mkdir", "-p", "\(LinuxQwenClient.mediaRoot)/\(remoteDirectory)"])
+            } catch {
+                presentedError = "Could not create the SoccerShots staging folder on Linux: \(error.localizedDescription)"
+                isScoring = false
+                progress = .finished(completed: 0, failed: photos.count)
+                scoringTask = nil
+                return
+            }
+
+            // Stage bounded chunks ahead of inference. The server still scores
+            // through its single model slot, while the LAN transfer stays ahead.
+            let chunkLimit: Int64 = 20 * 1_024 * 1_024 * 1_024
+            struct StagedPhoto {
+                let remoteName: String
+                let chunkNumber: Int
+                let pixelSharpness: Double?
+                let localURL: URL
+            }
+            var pendingChunk: [(photoPath: String, staged: StagedPhoto, size: Int64)] = []
+            var stagedByPath: [String: StagedPhoto] = [:]
+            var chunkBytes: Int64 = 0
+            var chunkNumber = 1
+
+            @MainActor func flushStagedChunk() async throws {
+                guard !pendingChunk.isEmpty else { return }
+                progress = .model("Uploading batch chunk \(chunkNumber)…")
+                let chunkDirectory = "\(remoteDirectory)/chunk-\(chunkNumber)"
+                try await LinuxQwenClient.runSSH(["mkdir", "-p", "\(LinuxQwenClient.mediaRoot)/\(chunkDirectory)"])
+                for entry in pendingChunk {
+                    try await LinuxQwenClient.upload(localURL: entry.staged.localURL, remotePath: "\(LinuxQwenClient.mediaRoot)/\(chunkDirectory)/\(entry.staged.remoteName)")
+                    try? FileManager.default.removeItem(at: entry.staged.localURL)
+                    stagedByPath[entry.photoPath] = entry.staged
+                }
+                chunkNumber += 1
+                pendingChunk.removeAll(keepingCapacity: true)
+            }
+
+            do {
+                for (offset, photo) in photos.enumerated() {
+                    guard !Task.isCancelled else { break }
+                    let index = offset + 1
+                    if let cached = cachedByPath[photo.url.path],
+                       cached.cacheMatches(photo, scoringVersion: EvidencePrompt.version, scoringEngine: currentScoringEngine),
+                       cached.score != nil { continue }
+                    progress = .preparing(index: index, total: photos.count, filename: photo.url.lastPathComponent)
+                    let prepared = try await LinuxQwenClient().prepare(photoURL: photo.url)
+                    if !pendingChunk.isEmpty && chunkBytes + Int64(prepared.data.count) > chunkLimit {
+                        try await flushStagedChunk()
+                        chunkBytes = 0
+                    }
+                    let name = "\(index)-\(UUID().uuidString).jpg"
+                    let local = FileManager.default.temporaryDirectory.appendingPathComponent(name)
+                    try prepared.data.write(to: local, options: .atomic)
+                    pendingChunk.append((photo.url.path, StagedPhoto(remoteName: name, chunkNumber: chunkNumber, pixelSharpness: prepared.pixelSharpness, localURL: local), Int64(prepared.data.count)))
+                    chunkBytes += Int64(prepared.data.count)
+                }
+                try await flushStagedChunk()
+            } catch {
+                presentedError = "Photo staging failed; completed scores are safe and you can resume by scoring this folder again. \(error.localizedDescription)"
+                isScoring = false
+                scoringTask = nil
+                return
+            }
 
             for (offset, photo) in photos.enumerated() {
                 guard !Task.isCancelled else { break }
@@ -400,18 +471,21 @@ final class AppModel: ObservableObject {
                 }
                 progress = .preparing(index: index, total: photos.count, filename: photo.url.lastPathComponent)
                 do {
-                    let startedAt = Date()
-                    let inspection = try await scorer.inspect(photoURL: photo.url) { [weak self] message in
-                        Task { @MainActor in self?.progress = .model(message) }
+                    guard let stagedPhoto = stagedByPath[photo.url.path] else {
+                        throw SoccerShotsError.message("The staged image is missing from this batch. Resume scoring to transfer it again.")
                     }
+                    let inspection = try await LinuxQwenClient().inspect(
+                        stagedRelativePath: "\(remoteDirectory)/chunk-\(stagedPhoto.chunkNumber)/\(stagedPhoto.remoteName)",
+                        pixelSharpness: stagedPhoto.pixelSharpness,
+                        apiKey: serverKey
+                    )
                     let score = EvidenceRuleEngine().score(
-                        inspection.evidence,
-                        pixelSharpness: inspection.pixelSharpness
+                        inspection.evidence, pixelSharpness: inspection.pixelSharpness
                     )
                     let primaryEvidence = EvidenceBenchmarkResult(
-                        modelID: localModelID,
+                        modelID: LinuxQwenClient.modelID,
                         scoredAt: Date(),
-                        durationSeconds: Date().timeIntervalSince(startedAt),
+                        durationSeconds: inspection.duration,
                         evidence: inspection.evidence,
                         score: score,
                         pixelSharpness: inspection.pixelSharpness
@@ -434,6 +508,7 @@ final class AppModel: ObservableObject {
                     if selectedPhotoID == nil { selectedPhotoID = scored.id }
                     completed += 1
                     persistSession()
+                    try? await LinuxQwenClient.runSSH(["rm", "-f", "\(LinuxQwenClient.mediaRoot)/\(remoteDirectory)/chunk-\(stagedPhoto.chunkNumber)/\(stagedPhoto.remoteName)"])
                 } catch is CancellationError {
                     break
                 } catch {
@@ -448,6 +523,7 @@ final class AppModel: ObservableObject {
             scoringTask = nil
             refreshModelDiskUsage()
             persistSession()
+            try? await LinuxQwenClient.runSSH(["rmdir", "\(LinuxQwenClient.mediaRoot)/\(remoteDirectory)"])
         }
     }
 

@@ -7,6 +7,15 @@ GitHub Actions usage, repetitive repository scanning, and unnecessary commits.
 
 GitHub CI is final validation. It is not the primary debugging environment.
 
+## AI Video Director Boundary
+
+This repository must never make changes to the AI Video Director project, its
+application source, its Linux server source or configuration, its Qwen model,
+model settings, prompts, or aviation-specific behavior. This applies to local
+files and to the Linux server at `192.168.1.163`. SoccerShots may call the
+existing inference API and transfer its own photo batches, but must not edit,
+restart, reconfigure, or deploy the Video Director or its model service.
+
 ## Repository Inspection
 
 Before modifying code:

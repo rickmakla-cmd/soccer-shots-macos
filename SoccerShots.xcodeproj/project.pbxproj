@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		9A0011223344556677889901 /* LinuxQwenClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A0011223344556677889902 /* LinuxQwenClient.swift */; };
 		090026613F7E6F10D7FA113D /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8C01245233CF55D2DC6CED7 /* KeychainStore.swift */; };
 		092E6380AA78DEFD5F0B032F /* PhotoDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11C599697F995C08899DE94 /* PhotoDetailView.swift */; };
 		2184F4CC02C5000E188A25C6 /* GeminiBatchClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6577327E68237AA90405DB4 /* GeminiBatchClient.swift */; };
@@ -55,6 +56,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		9A0011223344556677889902 /* LinuxQwenClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinuxQwenClient.swift; sourceTree = "<group>"; };
 		132A4D58C21F770508043E86 /* GeminiDeepReviewClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeminiDeepReviewClient.swift; sourceTree = "<group>"; };
 		158957D3C8A4875C23C1448E /* ScoreRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScoreRecord.swift; sourceTree = "<group>"; };
 		19764D2DA141FF340D51BEAE /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
@@ -151,6 +153,7 @@
 		C9F4EB04AEF396E5A33C5E7F /* SoccerShots */ = {
 			isa = PBXGroup;
 			children = (
+				9A0011223344556677889902 /* LinuxQwenClient.swift */,
 				19764D2DA141FF340D51BEAE /* AppModel.swift */,
 				C9EC7286D5D0DBA690CCD170 /* BenchmarkView.swift */,
 				E88ABA41F9C872F018FC59E4 /* BurstComparisonView.swift */,
@@ -284,6 +287,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				9A0011223344556677889901 /* LinuxQwenClient.swift in Sources */,
 				2C89CE9DA8D6A187C4C806CB /* AppModel.swift in Sources */,
 				706AD7C7D31C05946381ADDB /* BenchmarkView.swift in Sources */,
 				61E05844753652D5EC29E40A /* BurstComparisonView.swift in Sources */,
@@ -488,7 +492,7 @@
 				CODE_SIGN_ENTITLEMENTS = SoccerShots.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 37;
+				CURRENT_PROJECT_VERSION = 38;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = SoccerShots;
@@ -497,7 +501,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.36;
+				MARKETING_VERSION = 0.1.37;
 				PRODUCT_BUNDLE_IDENTIFIER = com.rickmakla.SoccerShots;
 				PRODUCT_NAME = SoccerShots;
 				SDKROOT = macosx;
@@ -511,7 +515,7 @@
 				CODE_SIGN_ENTITLEMENTS = SoccerShots.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 37;
+				CURRENT_PROJECT_VERSION = 38;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = SoccerShots;
@@ -520,7 +524,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.36;
+				MARKETING_VERSION = 0.1.37;
 				PRODUCT_BUNDLE_IDENTIFIER = com.rickmakla.SoccerShots;
 				PRODUCT_NAME = SoccerShots;
 				SDKROOT = macosx;

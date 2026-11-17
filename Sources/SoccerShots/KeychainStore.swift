@@ -4,6 +4,21 @@ import Security
 struct KeychainStore: Sendable {
     private let service = "com.rickmakla.SoccerShots.ai"
     private let account = "gemini"
+    private let llmService = "com.rickmakla.SoccerShots.llm-api-key"
+
+    func llmAPIKey() -> String? {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: llmService,
+            kSecAttrAccount as String: NSUserName(),
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ]
+        var result: CFTypeRef?
+        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
+              let data = result as? Data else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
 
     func saveGeminiAPIKey(_ key: String) throws {
         let query: [String: Any] = [
